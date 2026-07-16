@@ -129,14 +129,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   root.scale.setScalar(0.001);
   anchor.group.add(root);
 
-  // Everything is authored in an upright XY layout, then this wrapper lays the
-  // WHOLE composition flat into the card plane (MyWebAR style): what was "up"
-  // (+Y) now points away from the card toward the viewer. Elements that should
-  // still stand upright off the card (panel, logo, button) get STAND_UP applied.
+  // The MindAR image-target plane already faces the viewer (the card's printed
+  // face). So content authored upright in XY stands upright ON the card — no
+  // extra flattening. `flat` is a pass-through group; `STAND_UP = 0` means the
+  // panel/logo/button keep their authored upright orientation. Rings that
+  // should lie ON the card surface get their own local rotation where added.
   const flat = new THREE.Group();
-  flat.rotation.x = -Math.PI / 2;   // lay the layout down onto the card
   root.add(flat);
-  const STAND_UP = Math.PI / 2 - 0.35;  // tilt an element back up ~70° to face viewer
+  const STAND_UP = 0;
 
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
@@ -167,12 +167,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const glowPulses = [];  // {mesh, base}
 
-  // ================= 1. HERO: the headset — resting ON the card surface =================
+  // ================= headset — smaller floating accent, right of the pitch card =================
   const heroGroup = new THREE.Group();
   const headset = (await load('./assets/headset.glb')).scene;
   const hbox = new THREE.Box3().setFromObject(headset);
   const hc = hbox.getCenter(new THREE.Vector3());
-  const hScale = 0.13 / (hbox.max.x - hbox.min.x);
+  const hScale = 0.10 / (hbox.max.x - hbox.min.x);   // smaller accent, 10cm
   headset.scale.setScalar(hScale);
   headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
   headset.updateMatrixWorld(true);
@@ -186,45 +186,45 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     solid.applyMatrix4(child.matrixWorld);
     productGroup.add(solid);
   });
-  const headsetSpin = new THREE.Group();      // stays flat-lying; spins in place
+  const headsetSpin = new THREE.Group();
   headsetSpin.add(productGroup);
-  heroGroup.add(headsetSpin);
+  const headsetTilt = new THREE.Group();
+  headsetTilt.add(headsetSpin);
+  headsetTilt.rotation.x = -0.35;
+  heroGroup.add(headsetTilt);
 
-  const heroRing1 = glowRing(0.085, 0.004, 0x0066cc, 0.55);
-  const heroRing2 = glowRing(0.105, 0.002, 0x0066cc, 0.30);
-  // rings drawn in XY here; the flat wrapper lays them onto the card automatically
+  const heroRing1 = glowRing(0.062, 0.0032, 0x0066cc, 0.5);
+  const heroRing2 = glowRing(0.078, 0.0016, 0x0066cc, 0.28);
   heroRing1.rotation.x = Math.PI / 2; heroRing2.rotation.x = Math.PI / 2;
   heroGroup.add(heroRing1, heroRing2);
-  glowPulses.push({ mesh: heroRing1, base: 0.55 }, { mesh: heroRing2, base: 0.30 });
+  glowPulses.push({ mesh: heroRing1, base: 0.5 }, { mesh: heroRing2, base: 0.28 });
 
-  heroGroup.position.set(0.02, 0.0, 0.04);   // near card center, lifted slightly off surface
+  heroGroup.position.set(0.20, 0.16, 0.10);   // floats up-right, breaking above the card
   flat.add(heroGroup);
 
-  // ================= 2. pitch panel — stands UPRIGHT at the back edge of the card =================
+  // ================= HERO: the pitch card — large, central, floating above the card =================
   const pitch = (await load('./assets/norscope-pitch.glb')).scene;
   const pbox = new THREE.Box3().setFromObject(pitch);
   const pc = pbox.getCenter(new THREE.Vector3());
   const pitchGroup = new THREE.Group();
   pitch.position.set(-pc.x, -pc.y, -pbox.min.z);
+  pitch.scale.setScalar(1.25);                // bigger — this is the hero
   pitchGroup.add(pitch);
-  pitchGroup.rotation.x = STAND_UP;           // rise up off the card to face the viewer
-  pitchGroup.position.set(0, 0.30, 0.0);      // "behind" the card center (+Y in flat space)
+  pitchGroup.position.set(0.03, 0.34, 0.11);  // rises up and forward, breaking out the top
   flat.add(pitchGroup);
 
-  // ---- combined 3D logo + NORSCOPE lockup, standing above the panel's top ----
+  // ---- combined 3D logo + NORSCOPE lockup, at the very top ----
   const lockup = (await load('./assets/logo-lockup.glb')).scene;
   const logoGroup = new THREE.Group();
   logoGroup.add(lockup);
-  logoGroup.rotation.x = STAND_UP;
-  logoGroup.position.set(0, 0.30 + 0.20, 0.11);   // sits just above the panel, popped forward
+  logoGroup.position.set(0.03, 0.63, 0.13);   // crowns the composition, furthest forward
   flat.add(logoGroup);
 
-  // ================= 2b. CTA button — upright, at the FRONT edge of the card =================
+  // ================= CTA button — below the pitch card =================
   const cta = (await load('./assets/cta-button.glb')).scene;
   const ctaGroup = new THREE.Group();
   ctaGroup.add(cta);
-  ctaGroup.rotation.x = STAND_UP;
-  ctaGroup.position.set(0, -0.20, 0.02);       // toward the viewer / front of card
+  ctaGroup.position.set(0.03, 0.05, 0.09);     // sits under the pitch card
   flat.add(ctaGroup);
 
   const raycaster = new THREE.Raycaster();
@@ -255,27 +255,24 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   async function addFounder(avatarUrl, stageUrl, x, y, leanInward) {
     const g = new THREE.Group();
 
-    // projection ring lies flat on the ground beside the card
+    // projection ring lies flat on the card at her feet
     const ring1 = glowRing(0.055, 0.0032, 0x0066cc, 0.5);
     const ring2 = glowRing(0.070, 0.0016, 0x0066cc, 0.28);
     ring1.rotation.x = Math.PI / 2; ring2.rotation.x = Math.PI / 2;
+    ring1.position.z = 0.001; ring2.position.z = 0.001;
     g.add(ring1, ring2);
     glowPulses.push({ mesh: ring1, base: 0.5 }, { mesh: ring2, base: 0.28 });
 
-    // avatar stands UP off the ground (counter the flat wrapper)
-    const avatarStand = new THREE.Group();
-    avatarStand.rotation.x = Math.PI / 2;
-    g.add(avatarStand);
-
+    // avatar stands upright (its GLB is already Y-up), tall and prominent
     const gltf = await load(avatarUrl);
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const h = abox.max.y - abox.min.y;
-    const s = 0.24 / h;                              // 24cm standing figure
+    const s = 0.42 / h;                              // TALL — 42cm, overtops the card
     av.scale.setScalar(s);
-    av.position.set(0, -abox.min.y * s, 0);
+    av.position.set(0, -abox.min.y * s, 0.0);
     av.rotation.y = leanInward;
-    avatarStand.add(av);
+    g.add(av);
 
     if (gltf.animations && gltf.animations.length) {
       const mixer = new THREE.AnimationMixer(av);
@@ -283,20 +280,19 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       mixers.push(mixer);
     }
 
-    // nameplate: upright, in front of the feet
+    // nameplate upright, just in front of and below the feet
     const stage = (await load(stageUrl)).scene;
     const stageGroup = new THREE.Group();
     stageGroup.add(stage);
-    stageGroup.rotation.x = STAND_UP;
-    stageGroup.position.set(0, -0.075, 0.03);
+    stageGroup.position.set(0, 0.022, 0.03);
     g.add(stageGroup);
 
-    g.position.set(x, y, 0.0);
+    g.position.set(x, y, 0.03);
     flat.add(g);
     return g;
   }
-  // to the LEFT of the card, standing beside it
-  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.26, 0.0, 0.35);
+  // LEFT of the pitch card, rising up and overtopping it (MyWebAR/Karolina style)
+  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.24, 0.02, 0.5);
 
   // ================= reveal + idle animation =================
   let revealT = null;
@@ -325,12 +321,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         if (p >= 1) revealT = null;
       }
 
-      // headset: slow spin in place, resting on the card
+      // headset: slow spin, floating accent
       headsetSpin.rotation.y = t * 0.5;
+      heroGroup.position.z = 0.10 + Math.sin(t * 1.1) * 0.006;
 
-      // pitch panel + logo: gentle synchronized bob toward the viewer
-      pitchGroup.position.z = Math.sin(t * 1.3) * 0.005;
-      logoGroup.position.z = 0.11 + Math.sin(t * 1.5) * 0.006;
+      // pitch card (hero) + logo: gentle synchronized forward bob
+      pitchGroup.position.z = 0.11 + Math.sin(t * 1.3) * 0.006;
+      logoGroup.position.z = 0.13 + Math.sin(t * 1.5) * 0.006;
 
       // CTA: gentle attention pulse
       const ctaPulse = 1 + Math.sin(t * 2.6) * 0.03;
