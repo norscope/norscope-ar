@@ -155,25 +155,36 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const hScale = 0.12 / (hbox.max.x - hbox.min.x);   // hero: 12cm wide
   headset.scale.setScalar(hScale);
   headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
+  headset.updateMatrixWorld(true);   // ← without this, matrixWorld below is stale
+                                      //   (still identity) and the clones come
+                                      //   out at full ~1.1 m original size.
 
-  // Holographic "product preview" material — this doesn't exist yet, so it
-  // reads as a projection, not a solid object: translucent blue, additive
-  // rim, plus a wireframe shell for a technical/scanned feel.
+  // Holographic "product preview" look — translucent solid for shape, plus a
+  // SEPARATE low-poly geometry for the wireframe (the full-res mesh has ~40k
+  // triangles; wireframing that directly renders as a solid glowing mass,
+  // not lines — so the wireframe uses its own ~2k-triangle version).
   const hologramGroup = new THREE.Group();
   headset.traverse((child) => {
     if (!child.isMesh) return;
-    const solid = new THREE.Mesh(child.geometry, new THREE.MeshPhysicalMaterial({
-      color: 0x2f6fb0, transparent: true, opacity: 0.38,
-      roughness: 0.15, metalness: 0.1, transmission: 0.35, thickness: 0.02,
-      emissive: 0x0066cc, emissiveIntensity: 0.18,
+    const solid = new THREE.Mesh(child.geometry, new THREE.MeshStandardMaterial({
+      color: 0x4a86c8, transparent: true, opacity: 0.30,
+      roughness: 0.35, metalness: 0.05,
+      emissive: 0x0066cc, emissiveIntensity: 0.12,
       side: THREE.DoubleSide, depthWrite: false
     }));
     solid.applyMatrix4(child.matrixWorld);
     hologramGroup.add(solid);
+  });
 
+  const wireSource = (await load('./assets/headset-wire.glb')).scene;
+  wireSource.scale.setScalar(hScale);
+  wireSource.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
+  wireSource.updateMatrixWorld(true);
+  wireSource.traverse((child) => {
+    if (!child.isMesh) return;
     const wire = new THREE.Mesh(child.geometry, new THREE.MeshBasicMaterial({
-      color: 0x0066cc, wireframe: true, transparent: true, opacity: 0.5,
-      blending: THREE.AdditiveBlending, depthWrite: false
+      color: 0x0066cc, wireframe: true, transparent: true, opacity: 0.55,
+      depthWrite: false
     }));
     wire.applyMatrix4(child.matrixWorld);
     hologramGroup.add(wire);
