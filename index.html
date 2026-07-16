@@ -124,7 +124,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   scene.add(front);
 
   const anchor = mindarThree.addAnchor(0);
-  const SCENE_SCALE = 1.22;
+  const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
   anchor.group.add(root);
@@ -199,7 +199,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   heroGroup.add(heroRing1, heroRing2);
   glowPulses.push({ mesh: heroRing1, base: 0.5 }, { mesh: heroRing2, base: 0.28 });
 
-  heroGroup.position.set(0.20, 0.16, 0.10);   // floats up-right, breaking above the card
+  heroGroup.position.set(0.28, 0.02, 0.09);   // right of the pitch card, mid-height
   flat.add(heroGroup);
 
   // ================= HERO: the pitch card — large, central, floating above the card =================
@@ -210,21 +210,21 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   pitch.position.set(-pc.x, -pc.y, -pbox.min.z);
   pitch.scale.setScalar(1.25);                // bigger — this is the hero
   pitchGroup.add(pitch);
-  pitchGroup.position.set(0.03, 0.34, 0.11);  // rises up and forward, breaking out the top
+  pitchGroup.position.set(0.0, 0.30, 0.11);   // hero, centered upper-middle of the tall card
   flat.add(pitchGroup);
 
-  // ---- combined 3D logo + NORSCOPE lockup, at the very top ----
+  // ---- combined 3D logo + NORSCOPE lockup, crowning the top ----
   const lockup = (await load('./assets/logo-lockup.glb')).scene;
   const logoGroup = new THREE.Group();
   logoGroup.add(lockup);
-  logoGroup.position.set(0.03, 0.63, 0.13);   // crowns the composition, furthest forward
+  logoGroup.position.set(0.0, 0.78, 0.14);    // above the printed icon, furthest forward
   flat.add(logoGroup);
 
   // ================= CTA button — below the pitch card =================
   const cta = (await load('./assets/cta-button.glb')).scene;
   const ctaGroup = new THREE.Group();
   ctaGroup.add(cta);
-  ctaGroup.position.set(0.03, 0.05, 0.09);     // sits under the pitch card
+  ctaGroup.position.set(0.0, -0.32, 0.10);     // below the hero, over the upper QR
   flat.add(ctaGroup);
 
   const raycaster = new THREE.Raycaster();
@@ -291,8 +291,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(g);
     return g;
   }
-  // LEFT of the pitch card, rising up and overtopping it (MyWebAR/Karolina style)
-  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.24, 0.02, 0.5);
+  // LEFT, rising from mid-card and overtopping toward center (MyWebAR/Karolina style)
+  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.30, -0.10, 0.5);
 
   // ================= reveal + idle animation =================
   let revealT = null;
@@ -323,11 +323,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // headset: slow spin, floating accent
       headsetSpin.rotation.y = t * 0.5;
-      heroGroup.position.z = 0.10 + Math.sin(t * 1.1) * 0.006;
+      heroGroup.position.z = 0.09 + Math.sin(t * 1.1) * 0.006;
 
       // pitch card (hero) + logo: gentle synchronized forward bob
       pitchGroup.position.z = 0.11 + Math.sin(t * 1.3) * 0.006;
-      logoGroup.position.z = 0.13 + Math.sin(t * 1.5) * 0.006;
+      logoGroup.position.z = 0.14 + Math.sin(t * 1.5) * 0.006;
 
       // CTA: gentle attention pulse
       const ctaPulse = 1 + Math.sin(t * 2.6) * 0.03;
