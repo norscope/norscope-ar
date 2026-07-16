@@ -121,31 +121,30 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   // ---- pitch: floats PARALLEL to the card face, facing the viewer ----
   const pitch = (await load('./assets/norscope-pitch.glb')).scene;
-  pitch.scale.setScalar(0.80);
-  // center it: the pitch model's own origin sits at its lower-left-ish corner
+  pitch.scale.setScalar(1.0);
   const pbox = new THREE.Box3().setFromObject(pitch);
   const pc = pbox.getCenter(new THREE.Vector3());
-  pitch.position.set(-pc.x, -pc.y + 0.10, 0.14);
+  pitch.position.set(-pc.x, -pc.y + 0.34, 0.10);
   const pitchGroup = new THREE.Group();
   pitchGroup.add(pitch);
   anchor.group.add(pitchGroup);
 
-  // ---- founders: hologram layers PARALLEL to the card, like the pitch ----
+  // ---- founders: small, quiet presence low on either side — the pitch leads ----
   const mixers = [];
   async function addFounder(avatarUrl, stageUrl, x, leanInward) {
     const g = new THREE.Group();
-    const stage = (await load(stageUrl)).scene;   // ring on card + name plate
+    const stage = (await load(stageUrl)).scene;   // small nameplate pill
+    stage.position.set(0, -0.30, 0.02);
     g.add(stage);
 
     const gltf = await load(avatarUrl);
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const h = abox.max.y - abox.min.y;
-    const s = 0.34 / h;                            // avatar ~0.34 units tall
+    const s = 0.20 / h;                            // small: ~0.20 units tall
     av.scale.setScalar(s);
-    // feet at the ring center, floating slightly in front of the card
-    av.position.set(0, -0.16 - abox.min.y * s, 0.06);
-    av.rotation.y = leanInward;                    // slight turn toward center
+    av.position.set(0, -0.30 + 0.05 - abox.min.y * s, 0.02);
+    av.rotation.y = leanInward;
     g.add(av);
 
     if (gltf.animations && gltf.animations.length) {
@@ -154,12 +153,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       mixers.push(mixer);
     }
 
-    g.position.set(x, -0.06, 0.02);
+    g.position.set(x, -0.34, 0.03);
     anchor.group.add(g);
     return g;
   }
-  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.42, 0.35);
-  await addFounder('./assets/siddhant-avatar-placeholder.glb', './assets/stage-siddhant.glb', 0.42, -0.35);
+  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.60, 0.35);
+  await addFounder('./assets/siddhant-avatar-placeholder.glb', './assets/stage-siddhant.glb', 0.60, -0.35);
 
   anchor.onTargetFound = () => { scanhint.style.display = 'none'; };
   anchor.onTargetLost = () => { scanhint.style.display = 'block'; };
