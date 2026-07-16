@@ -117,14 +117,50 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
-  loader.load('./assets/norscope-experience.glb', (gltf) => {
-    const model = gltf.scene;
-    // stand upright ON the card: card plane is XY, Z points toward viewer
-    model.rotation.x = Math.PI / 2;
-    model.scale.setScalar(0.55);
-    model.position.set(0, 0, 0.01);
-    anchor.group.add(model);
-  });
+  const load = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+
+  // ---- pitch: floats PARALLEL to the card face, facing the viewer ----
+  const pitch = (await load('./assets/norscope-pitch.glb')).scene;
+  pitch.scale.setScalar(0.92);
+  // center it: the pitch model's own origin sits at its lower-left-ish corner
+  const pbox = new THREE.Box3().setFromObject(pitch);
+  const pc = pbox.getCenter(new THREE.Vector3());
+  pitch.position.set(-pc.x, -pc.y + 0.06, 0.20);
+  const pitchGroup = new THREE.Group();
+  pitchGroup.add(pitch);
+  anchor.group.add(pitchGroup);
+
+  // ---- founders: stand UPRIGHT on the card, flanking the pitch ----
+  const mixers = [];
+  async function addFounder(avatarUrl, stageUrl, x, faceInward) {
+    const g = new THREE.Group();
+    const stage = (await load(stageUrl)).scene;
+    g.add(stage);
+
+    const gltf = await load(avatarUrl);
+    const av = gltf.scene;
+    const abox = new THREE.Box3().setFromObject(av);
+    const h = abox.max.y - abox.min.y;
+    const s = 0.42 / h;                       // avatar ~0.42 units tall
+    av.scale.setScalar(s);
+    av.position.set(0, 0.02 - abox.min.y * s, 0);
+    g.add(av);
+
+    if (gltf.animations && gltf.animations.length) {
+      const mixer = new THREE.AnimationMixer(av);
+      mixer.clipAction(gltf.animations[0]).play();
+      mixers.push(mixer);
+    }
+
+    // stand on the card: card plane is XY, Z points at the viewer
+    g.rotation.x = Math.PI / 2;
+    g.rotation.y = faceInward;                // slight turn toward center
+    g.scale.setScalar(0.62);
+    g.position.set(x, -0.10, 0.0);
+    anchor.group.add(g);
+  }
+  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.42, 0.28);
+  await addFounder('./assets/siddhant-avatar-placeholder.glb', './assets/stage-siddhant.glb', 0.42, -0.28);
 
   anchor.onTargetFound = () => { scanhint.style.display = 'none'; };
   anchor.onTargetLost = () => { scanhint.style.display = 'block'; };
@@ -133,7 +169,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     await mindarThree.start();
     startEl.style.display = 'none';
     scanhint.style.display = 'block';
-    renderer.setAnimationLoop(() => renderer.render(scene, camera));
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const dt = clock.getDelta();
+      mixers.forEach(m => m.update(dt));
+      // gentle hover for the pitch layer
+      pitchGroup.position.z = Math.sin(clock.elapsedTime * 1.4) * 0.012;
+      renderer.render(scene, camera);
+    });
   } catch (e) {
     errEl.textContent = 'Kamera konnte nicht gestartet werden: ' + (e && e.message ? e.message : e) +
       ' — bitte in Safari/Chrome direkt öffnen (nicht im In-App-Browser) und Kamerazugriff erlauben.';
