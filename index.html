@@ -107,14 +107,21 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     filterBeta: 0.001
   });
   const { renderer, scene, camera } = mindarThree;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.25;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x60666e, 1.35));
-  const dir = new THREE.DirectionalLight(0xffffff, 1.3);
-  dir.position.set(0.4, 1, 0.8);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9098a4, 2.1));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.7);
+  dir.position.set(0.4, 1, 0.9);
   scene.add(dir);
-  const fill = new THREE.DirectionalLight(0xbcd4ff, 0.5);
-  fill.position.set(-0.6, 0.3, 0.4);
+  const fill = new THREE.DirectionalLight(0xcfe0ff, 0.9);
+  fill.position.set(-0.7, 0.4, 0.5);
   scene.add(fill);
+  const front = new THREE.DirectionalLight(0xffffff, 0.7);
+  front.position.set(0, 0.2, 1.2);
+  scene.add(front);
 
   const anchor = mindarThree.addAnchor(0);
   const SCENE_SCALE = 1.22;         // "ein bisschen größer" — everything scales together
@@ -200,6 +207,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   pitchGroup.rotation.x = -0.05;
   root.add(pitchGroup);
 
+  // ---- floating 3D logo — breaks out above the panel's top edge ----
+  const logo3d = (await load('./assets/logo3d.glb')).scene;
+  const logoGroup = new THREE.Group();
+  logoGroup.add(logo3d);
+  // panel top edge ≈ 0.407 + 0.312/2 ≈ 0.563; sit the logo straddling it
+  logoGroup.position.set(0, 0.556, 0.055);
+  root.add(logoGroup);
+
   // ================= 2b. CTA button — tappable, opens the contact page =================
   const cta = (await load('./assets/cta-button.glb')).scene;
   const ctaGroup = new THREE.Group();
@@ -209,21 +224,27 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
-  function onTap(clientX, clientY) {
-    const rect = renderer.domElement.getBoundingClientRect();
+  let ctaArmed = false;   // only active once the scene is revealed
+  function tryTapCTA(clientX, clientY) {
+    if (!ctaArmed) return;
+    const canvas = renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    if (raycaster.intersectObject(ctaGroup, true).length > 0) {
-      window.open('https://www.norscope.com/#/contact', '_blank');
+    const hits = raycaster.intersectObject(ctaGroup, true);
+    if (hits.length > 0) {
+      window.location.href = 'https://www.norscope.com/#/contact';
     }
   }
-  renderer.domElement.addEventListener('click', (e) => onTap(e.clientX, e.clientY));
-  renderer.domElement.addEventListener('touchend', (e) => {
+  // listen on the container (covers the whole viewport) using pointer + touch
+  const arContainer = document.getElementById('ar-container');
+  arContainer.addEventListener('pointerup', (e) => tryTapCTA(e.clientX, e.clientY));
+  arContainer.addEventListener('touchend', (e) => {
     if (e.changedTouches && e.changedTouches.length) {
-      onTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      tryTapCTA(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
     }
-  });
+  }, { passive: true });
 
   // ================= 3. founders — bigger, flanking, with holographic presence =================
   const mixers = [];
@@ -273,8 +294,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   anchor.onTargetFound = () => {
     scanhint.style.display = 'none';
     revealT = performance.now();
+    ctaArmed = true;
   };
-  anchor.onTargetLost = () => { scanhint.style.display = 'block'; };
+  anchor.onTargetLost = () => { scanhint.style.display = 'block'; ctaArmed = false; };
 
   try {
     await mindarThree.start();
@@ -300,6 +322,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // pitch: subtle hover
       pitchGroup.position.z = -0.02 + Math.sin(t * 1.3) * 0.006;
+
+      // floating logo: gentle bob + slight sway, popping out above the card
+      logoGroup.position.y = 0.556 + Math.sin(t * 1.5) * 0.007;
+      logoGroup.rotation.y = Math.sin(t * 0.8) * 0.25;
 
       // CTA: gentle attention pulse
       const ctaPulse = 1 + Math.sin(t * 2.6) * 0.03;
