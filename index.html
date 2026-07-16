@@ -114,36 +114,132 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   scene.add(dir);
 
   const anchor = mindarThree.addAnchor(0);
+  const root = new THREE.Group();   // everything scales in together on target-found
+  root.scale.setScalar(0.001);
+  anchor.group.add(root);
 
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const load = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
 
-  // ---- pitch: floats PARALLEL to the card face, facing the viewer ----
+  // ---- helper: soft glow ring (additive, no texture needed) ----
+  function glowRing(radius, thickness, color, opacity) {
+    const geo = new THREE.RingGeometry(radius - thickness, radius + thickness, 64);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI / 2;
+    return ring;
+  }
+  // ---- helper: soft vertical holographic beam ----
+  function beam(height, radius, color) {
+    const geo = new THREE.CylinderGeometry(radius, radius * 1.6, height, 20, 1, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.10, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.y = height / 2;
+    return m;
+  }
+
+  const glowPulses = [];  // {mesh, base}
+
+  // ================= 1. HERO: the headset — the product, front and center =================
+  const heroGroup = new THREE.Group();
+  const headset = (await load('./assets/headset.glb')).scene;
+  const hbox = new THREE.Box3().setFromObject(headset);
+  const hc = hbox.getCenter(new THREE.Vector3());
+  const hScale = 0.12 / (hbox.max.x - hbox.min.x);   // hero: 12cm wide
+  headset.scale.setScalar(hScale);
+  headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
+
+  // Holographic "product preview" material — this doesn't exist yet, so it
+  // reads as a projection, not a solid object: translucent blue, additive
+  // rim, plus a wireframe shell for a technical/scanned feel.
+  const hologramGroup = new THREE.Group();
+  headset.traverse((child) => {
+    if (!child.isMesh) return;
+    const solid = new THREE.Mesh(child.geometry, new THREE.MeshPhysicalMaterial({
+      color: 0x2f6fb0, transparent: true, opacity: 0.38,
+      roughness: 0.15, metalness: 0.1, transmission: 0.35, thickness: 0.02,
+      emissive: 0x0066cc, emissiveIntensity: 0.18,
+      side: THREE.DoubleSide, depthWrite: false
+    }));
+    solid.applyMatrix4(child.matrixWorld);
+    hologramGroup.add(solid);
+
+    const wire = new THREE.Mesh(child.geometry, new THREE.MeshBasicMaterial({
+      color: 0x0066cc, wireframe: true, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    }));
+    wire.applyMatrix4(child.matrixWorld);
+    hologramGroup.add(wire);
+  });
+
+  const headsetTilt = new THREE.Group();
+  headsetTilt.add(hologramGroup);
+  headsetTilt.rotation.x = -0.14;
+  heroGroup.add(headsetTilt);
+
+  // a slow vertical scan-line sweeping through the hologram
+  const scanGeo = new THREE.PlaneGeometry(0.16, 0.003);
+  const scanMat = new THREE.MeshBasicMaterial({
+    color: 0x66b3ff, transparent: true, opacity: 0.7,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  const scanLine = new THREE.Mesh(scanGeo, scanMat);
+  scanLine.rotation.x = Math.PI / 2;
+  headsetTilt.add(scanLine);
+
+  const heroRing1 = glowRing(0.075, 0.004, 0x0066cc, 0.55);
+  const heroRing2 = glowRing(0.095, 0.002, 0x0066cc, 0.30);
+  heroRing1.position.y = 0.002; heroRing2.position.y = 0.002;
+  heroGroup.add(heroRing1, heroRing2);
+  glowPulses.push({ mesh: heroRing1, base: 0.55 }, { mesh: heroRing2, base: 0.30 });
+
+  const heroBeam = beam(0.11, 0.05, 0x0066cc);
+  heroGroup.add(heroBeam);
+
+  heroGroup.position.set(0, 0.075, 0.03);
+  root.add(heroGroup);
+
+  // ================= 2. the pitch panel — behind & above the headset =================
   const pitch = (await load('./assets/norscope-pitch.glb')).scene;
-  pitch.scale.setScalar(1.0);
   const pbox = new THREE.Box3().setFromObject(pitch);
   const pc = pbox.getCenter(new THREE.Vector3());
-  pitch.position.set(-pc.x, -pc.y + 0.34, 0.10);
   const pitchGroup = new THREE.Group();
+  pitch.position.set(-pc.x, -pc.y, -pbox.min.z);
   pitchGroup.add(pitch);
-  anchor.group.add(pitchGroup);
+  pitchGroup.position.set(0, 0.205, -0.045);
+  pitchGroup.rotation.x = -0.10;
+  root.add(pitchGroup);
 
-  // ---- founders: small, quiet presence low on either side — the pitch leads ----
+  // ================= 3. founders — bigger, flanking, with holographic presence =================
   const mixers = [];
   async function addFounder(avatarUrl, stageUrl, x, leanInward) {
     const g = new THREE.Group();
-    const stage = (await load(stageUrl)).scene;   // small nameplate pill
-    stage.position.set(0, -0.30, 0.02);
+
+    const ring1 = glowRing(0.052, 0.0032, 0x0066cc, 0.5);
+    const ring2 = glowRing(0.066, 0.0016, 0x0066cc, 0.28);
+    g.add(ring1, ring2);
+    glowPulses.push({ mesh: ring1, base: 0.5 }, { mesh: ring2, base: 0.28 });
+    g.add(beam(0.30, 0.045, 0x0066cc));
+
+    const stage = (await load(stageUrl)).scene;
+    stage.position.set(0, -0.014, 0.075);
+    stage.rotation.x = -Math.PI / 2;
     g.add(stage);
 
     const gltf = await load(avatarUrl);
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const h = abox.max.y - abox.min.y;
-    const s = 0.20 / h;                            // small: ~0.20 units tall
+    const s = 0.30 / h;                              // prominent: 30cm tall
     av.scale.setScalar(s);
-    av.position.set(0, -0.30 + 0.05 - abox.min.y * s, 0.02);
+    av.position.set(0, -abox.min.y * s + 0.004, 0);
     av.rotation.y = leanInward;
     g.add(av);
 
@@ -153,14 +249,19 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       mixers.push(mixer);
     }
 
-    g.position.set(x, -0.34, 0.03);
-    anchor.group.add(g);
+    g.position.set(x, 0, 0.01);
+    root.add(g);
     return g;
   }
-  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.60, 0.35);
-  await addFounder('./assets/siddhant-avatar-placeholder.glb', './assets/stage-siddhant.glb', 0.60, -0.35);
+  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.155, 0.4);
+  await addFounder('./assets/siddhant-avatar-placeholder.glb', './assets/stage-siddhant.glb', 0.155, -0.4);
 
-  anchor.onTargetFound = () => { scanhint.style.display = 'none'; };
+  // ================= reveal + idle animation =================
+  let revealT = null;
+  anchor.onTargetFound = () => {
+    scanhint.style.display = 'none';
+    revealT = performance.now();
+  };
   anchor.onTargetLost = () => { scanhint.style.display = 'block'; };
 
   try {
@@ -170,9 +271,34 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     const clock = new THREE.Clock();
     renderer.setAnimationLoop(() => {
       const dt = clock.getDelta();
+      const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
-      // gentle hover for the pitch layer
-      pitchGroup.position.z = Math.sin(clock.elapsedTime * 1.4) * 0.012;
+
+      // scan-in reveal: quick scale + ease when the target is (re)found
+      if (revealT !== null) {
+        const p = Math.min(1, (performance.now() - revealT) / 550);
+        const ease = 1 - Math.pow(1 - p, 3);
+        root.scale.setScalar(0.001 + ease * 0.999);
+        if (p >= 1) revealT = null;
+      }
+
+      // headset: slow rotation + gentle float — the hero keeps moving
+      headsetTilt.rotation.y = t * 0.5;
+      heroGroup.position.y = 0.075 + Math.sin(t * 1.1) * 0.006;
+
+      // hologram scan-line sweeping top to bottom, looping
+      const sweep = (t * 0.4) % 1.0;
+      scanLine.position.y = 0.075 - sweep * 0.15;
+      scanMat.opacity = 0.7 * (1 - Math.abs(sweep - 0.5) * 1.6);
+
+      // pitch: subtle hover
+      pitchGroup.position.z = -0.045 + Math.sin(t * 1.3) * 0.006;
+
+      // glow pulses on every ring
+      glowPulses.forEach(({ mesh, base }, i) => {
+        mesh.material.opacity = base * (0.75 + 0.25 * Math.sin(t * 2.2 + i));
+      });
+
       renderer.render(scene, camera);
     });
   } catch (e) {
