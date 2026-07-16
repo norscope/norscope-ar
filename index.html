@@ -185,7 +185,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const heroBeam = beam(0.11, 0.05, 0x0066cc);
   heroGroup.add(heroBeam);
 
-  heroGroup.position.set(0, 0.16, 0.02);
+  heroGroup.position.set(0, 0.14, 0.02);
   root.add(heroGroup);
 
   // ================= 2. the pitch panel — behind & above the headset =================
@@ -195,7 +195,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const pitchGroup = new THREE.Group();
   pitch.position.set(-pc.x, -pc.y, -pbox.min.z);
   pitchGroup.add(pitch);
-  pitchGroup.position.set(0, 0.335, -0.02);
+  pitchGroup.position.set(0, 0.397, -0.02);
   pitchGroup.rotation.x = -0.05;
   root.add(pitchGroup);
 
@@ -208,7 +208,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     const ring2 = glowRing(0.066, 0.0016, 0x0066cc, 0.28);
     g.add(ring1, ring2);
     glowPulses.push({ mesh: ring1, base: 0.5 }, { mesh: ring2, base: 0.28 });
-    g.add(beam(0.30, 0.045, 0x0066cc));
+    g.add(beam(0.20, 0.045, 0x0066cc));
 
     const stage = (await load(stageUrl)).scene;
     stage.position.set(0, -0.014, 0.075);
@@ -219,7 +219,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const h = abox.max.y - abox.min.y;
-    const s = 0.30 / h;                              // prominent: 30cm tall
+    const s = 0.20 / h;                              // 20cm — clears the panel above her
     av.scale.setScalar(s);
     av.position.set(0, -abox.min.y * s + 0.004, 0);
     av.rotation.y = leanInward;
@@ -235,7 +235,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     root.add(g);
     return g;
   }
-  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.11, 0);
+  await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.17, 0.3);
   // Siddhant's avatar is intentionally left out for now — the placeholder
   // capsule read as a confusing dark blob next to the headset. Once his
   // real Avaturn export is in (assets/siddhant-avatar-placeholder.glb),
@@ -270,7 +270,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // headset: slow rotation + gentle float — the hero keeps moving
       headsetTilt.rotation.y = t * 0.5;
-      heroGroup.position.y = 0.16 + Math.sin(t * 1.1) * 0.006;
+      heroGroup.position.y = 0.14 + Math.sin(t * 1.1) * 0.006;
 
       // pitch: subtle hover
       pitchGroup.position.z = -0.045 + Math.sin(t * 1.3) * 0.006;
