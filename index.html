@@ -660,6 +660,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     return plane;
   }
 
+  const mixers = [];
+
   async function buildAvatarGroup(avatarUrl, name, role, phone, email, accentHex, xPos) {
     const g = new THREE.Group();
 
@@ -715,7 +717,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     '#00ffcc', -0.36
   );
   const siddhantData = await buildAvatarGroup(
-    './assets/sara-avatar.glb',
+    './assets/siddhant-avatar.glb',
     'Siddhant Jain', 'Co-Founder & CTO',
     '+49 160 000 0002', 'siddhant@norscope.com',
     '#7c3aff', 0.36
@@ -788,7 +790,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     }
   }, { passive: true });
 
-  const mixers = [];
 
   // ---- staged entrance: hub pops in first, then avatars, then feature cards ----
   const entrances = [
@@ -1128,13 +1129,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       function easeOutBackLocal(p) { const c=1.5; return 1+(c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2); }
       function easeIn(p) { return p*p; }
       const now2 = performance.now();
-      expandAnims.forEach((anim, i) => {
+      for (let i = expandAnims.length - 1; i >= 0; i--) {
+        const anim = expandAnims[i];
         const p = Math.min(1, (now2 - anim.startMs) / anim.duration);
         const t2 = anim.toScale > anim.fromScale ? easeOutBackLocal(p) : easeIn(p);
         const s = Math.max(0.0001, anim.fromScale + (anim.toScale - anim.fromScale) * t2);
         anim.card.scale.setScalar(s);
         if (p >= 1) expandAnims.splice(i, 1);
-      });
+      }
+
 
       // glow pulses on every ring
       glowPulses.forEach(({ mesh, base }, i) => {
