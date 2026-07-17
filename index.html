@@ -345,6 +345,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   let ctaArmed = false;
   function tryTapCTA(clientX, clientY) {
     if (!ctaArmed) return;
+    if (editTarget !== null) return; // Disable CTA click during editing/positioning
     const canvas = renderer.domElement;
     const rect = canvas.getBoundingClientRect();
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -485,15 +486,28 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     function select(i) {
       current = list[i];
       editTarget = current.obj;
-      editBase.set(current.obj, { z: current.obj.position.z, scale: current.obj.scale.x });
+      // Do not overwrite editBase here to prevent capturing active Z-bob or scale pulse.
       syncFrom(current);
     }
     sel.addEventListener('change', () => select(+sel.value));
     $('ed-x').addEventListener('input', () => { current.obj.position.x = +$('ed-x').value; $('val-x').textContent = (+$('ed-x').value).toFixed(3); });
     $('ed-y').addEventListener('input', () => { current.obj.position.y = +$('ed-y').value; $('val-y').textContent = (+$('ed-y').value).toFixed(3); });
-    $('ed-z').addEventListener('input', () => { current.obj.position.z = +$('ed-z').value; editBase.set(current.obj, { z: +$('ed-z').value, scale: current.obj.scale.x }); $('val-z').textContent = (+$('ed-z').value).toFixed(3); });
+    $('ed-z').addEventListener('input', () => {
+      current.obj.position.z = +$('ed-z').value;
+      const existing = editBase.get(current.obj);
+      const s = existing ? existing.scale : current.baseScale;
+      editBase.set(current.obj, { z: +$('ed-z').value, scale: s });
+      $('val-z').textContent = (+$('ed-z').value).toFixed(3);
+    });
     $('ed-rot').addEventListener('input', () => { current.obj.rotation.y = +$('ed-rot').value; $('val-rot').textContent = (+$('ed-rot').value).toFixed(2); });
-    $('ed-scl').addEventListener('input', () => { const s = +$('ed-scl').value * current.baseScale; current.obj.scale.setScalar(s); editBase.set(current.obj, { z: current.obj.position.z, scale: s }); $('val-scl').textContent = (+$('ed-scl').value).toFixed(2); });
+    $('ed-scl').addEventListener('input', () => {
+      const s = +$('ed-scl').value * current.baseScale;
+      current.obj.scale.setScalar(s);
+      const existing = editBase.get(current.obj);
+      const zVal = existing ? existing.z : current.obj.position.z;
+      editBase.set(current.obj, { z: zVal, scale: s });
+      $('val-scl').textContent = (+$('ed-scl').value).toFixed(2);
+    });
     $('ed-export').addEventListener('click', () => {
       const lines = list.map(e => {
         const p = e.obj.position, r = e.obj.rotation, sc = (e.obj.scale.x / e.baseScale);
@@ -542,6 +556,21 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
 
+      // scan-in reveal scale factor: applied to root's tracking scale
+      let revealScale = 1.0;
+      if (revealT !== null) {
+        const el = performance.now() - revealT;
+        const p = Math.min(1, el / 350);
+        revealScale = 0.001 + (1 - Math.pow(1 - p, 3)) * (SCENE_SCALE - 0.001);
+        let allDone = p >= 1;
+        entrances.forEach(e => {
+          const ep = Math.min(1, Math.max(0, (el - 250 - e.delay) / 420));
+          e.obj.scale.setScalar(Math.max(0.0001, e.base * easeOutBack(ep)));
+          if (ep < 1) allDone = false;
+        });
+        if (allDone) revealT = null;
+      }
+
       // Smoothly chase MindAR's raw tracked pose (see the note by `root`'s
       // declaration). MindAR writes the tracked pose directly into
       // anchor.group.matrix (with matrixAutoUpdate disabled) and NEVER syncs
@@ -558,15 +587,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       root.visible = targetVisible;
       if (root.visible) {
         anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
-        // THE BUG, found via the on-screen readout: MindAR's decomposed
-        // anchor position comes out in a space scaled by anchorScale itself
-        // (observed scl ≈ 1000+ while our content is authored assuming
-        // scale ≈ 1) — so raw anchorPos lands root ~3000 units from the
-        // camera, far past the render distance, while root's own scale
-        // stayed ≈1. Dividing position by scale brings it back into the
-        // same unit space our content is authored in (observed ratio
-        // pos.z / scl ≈ -3, a sane in-frame distance).
-        anchorPos.divide(anchorScale);
+        
         // Defensive guard: if MindAR hasn't written a real pose yet on the
         // very first frame after "found" (a possible one-frame race), the
         // decomposed values could be garbage/identity/NaN. Applying that
@@ -579,13 +600,19 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         if (finite) {
           const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
           const k = 1 - Math.exp(-lambda * dt);
+          
+          // Multiply target scale by the reveal animation factor so it grows smoothly
+          const targetScale = new THREE.Vector3().copy(anchorScale).multiplyScalar(revealScale);
+          
           if (!anchorSmoothInit) {
             root.position.copy(anchorPos);
             root.quaternion.copy(anchorQuat);
+            root.scale.copy(targetScale);
             anchorSmoothInit = true;
           } else {
             root.position.lerp(anchorPos, k);
             root.quaternion.slerp(anchorQuat, k);
+            root.scale.lerp(targetScale, k);
           }
         }
         // Throttled live readout: proves definitively whether root ends up
@@ -597,20 +624,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         }
       } else {
         anchorSmoothInit = false;   // next found-frame snaps instead of gliding in from stale data
-      }
-
-      // scan-in reveal: root scales in fast, then elements pop in staged
-      if (revealT !== null) {
-        const el = performance.now() - revealT;
-        const p = Math.min(1, el / 350);
-        root.scale.setScalar(0.001 + (1 - Math.pow(1 - p, 3)) * (SCENE_SCALE - 0.001));
-        let allDone = p >= 1;
-        entrances.forEach(e => {
-          const ep = Math.min(1, Math.max(0, (el - 250 - e.delay) / 420));
-          e.obj.scale.setScalar(Math.max(0.0001, e.base * easeOutBack(ep)));
-          if (ep < 1) allDone = false;
-        });
-        if (allDone) revealT = null;
       }
 
       // pitch card / CTA billboard: smoothly yaw toward the camera around the
@@ -633,10 +646,24 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // caused chatter and could leave a panel stuck near edge-on to the
       // camera — i.e. invisible despite double-sided material.
       flat.worldToLocal(camLocal.copy(camSmoothWorld));
-      billboards.forEach(b => {
-        const dx = camLocal.x - b.position.x, dy = camLocal.y - b.position.y;
-        b.rotation.z = Math.atan2(dx, -dy);
-      });
+
+      // 2-Axis Billboard for Pitch Card (always face camera directly)
+      const dxPitch = camLocal.x - pitchGroup.position.x;
+      const dyPitch = camLocal.y - pitchGroup.position.y;
+      const distPitch = Math.sqrt(dxPitch * dxPitch + dyPitch * dyPitch);
+      const dzPitch = camLocal.z - pitchGroup.position.z;
+      const pitchAngle = Math.atan2(dzPitch, distPitch);
+      pitchGroup.rotation.z = Math.atan2(dxPitch, -dyPitch);
+      pitchStand.rotation.x = Math.PI / 2 - pitchAngle;
+
+      // 2-Axis Billboard for CTA Button (always face camera directly)
+      const dxCTA = camLocal.x - ctaGroup.position.x;
+      const dyCTA = camLocal.y - ctaGroup.position.y;
+      const distCTA = Math.sqrt(dxCTA * dxCTA + dyCTA * dyCTA);
+      const dzCTA = camLocal.z - ctaGroup.position.z;
+      const ctaAngle = Math.atan2(dzCTA, distCTA);
+      ctaGroup.rotation.z = Math.atan2(dxCTA, -dyCTA);
+      ctaStand.rotation.x = Math.PI / 2 - ctaAngle;
 
       // nameplate billboard: same idea, in the founder group's own local frame.
       founderBillboards.forEach(({ yaw, holder }) => {
