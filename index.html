@@ -558,15 +558,32 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       root.visible = targetVisible;
       if (root.visible) {
         anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
-        const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
-        const k = 1 - Math.exp(-lambda * dt);
-        if (!anchorSmoothInit) {
-          root.position.copy(anchorPos);
-          root.quaternion.copy(anchorQuat);
-          anchorSmoothInit = true;
-        } else {
-          root.position.lerp(anchorPos, k);
-          root.quaternion.slerp(anchorQuat, k);
+        // Defensive guard: if MindAR hasn't written a real pose yet on the
+        // very first frame after "found" (a possible one-frame race), the
+        // decomposed values could be garbage/identity/NaN. Applying that
+        // once would silently strand root at the wrong place forever after
+        // (since every later frame just lerps toward whatever came before).
+        // Skip applying corrupted data and keep whatever pose we already had.
+        const finite = Number.isFinite(anchorPos.x) && Number.isFinite(anchorPos.y) && Number.isFinite(anchorPos.z)
+          && Number.isFinite(anchorQuat.x) && Number.isFinite(anchorQuat.y) && Number.isFinite(anchorQuat.z) && Number.isFinite(anchorQuat.w);
+        if (finite) {
+          const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
+          const k = 1 - Math.exp(-lambda * dt);
+          if (!anchorSmoothInit) {
+            root.position.copy(anchorPos);
+            root.quaternion.copy(anchorQuat);
+            anchorSmoothInit = true;
+          } else {
+            root.position.lerp(anchorPos, k);
+            root.quaternion.slerp(anchorQuat, k);
+          }
+        }
+        // Throttled live readout: proves definitively whether root ends up
+        // in a sane place (small, near-origin numbers) or a corrupted one
+        // (huge, zero, or NaN) — settles this without another guessing round.
+        if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) {
+          debugLog('pos ' + root.position.x.toFixed(2) + ',' + root.position.y.toFixed(2) + ',' + root.position.z.toFixed(2)
+            + ' scl ' + anchorScale.x.toFixed(2) + ' rScl ' + root.scale.x.toFixed(3) + ' fin=' + finite);
         }
       } else {
         anchorSmoothInit = false;   // next found-frame snaps instead of gliding in from stale data
