@@ -558,6 +558,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       root.visible = targetVisible;
       if (root.visible) {
         anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
+        // THE BUG, found via the on-screen readout: MindAR's decomposed
+        // anchor position comes out in a space scaled by anchorScale itself
+        // (observed scl ≈ 1000+ while our content is authored assuming
+        // scale ≈ 1) — so raw anchorPos lands root ~3000 units from the
+        // camera, far past the render distance, while root's own scale
+        // stayed ≈1. Dividing position by scale brings it back into the
+        // same unit space our content is authored in (observed ratio
+        // pos.z / scl ≈ -3, a sane in-frame distance).
+        anchorPos.divide(anchorScale);
         // Defensive guard: if MindAR hasn't written a real pose yet on the
         // very first frame after "found" (a possible one-frame race), the
         // decomposed values could be garbage/identity/NaN. Applying that
@@ -565,7 +574,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         // (since every later frame just lerps toward whatever came before).
         // Skip applying corrupted data and keep whatever pose we already had.
         const finite = Number.isFinite(anchorPos.x) && Number.isFinite(anchorPos.y) && Number.isFinite(anchorPos.z)
-          && Number.isFinite(anchorQuat.x) && Number.isFinite(anchorQuat.y) && Number.isFinite(anchorQuat.z) && Number.isFinite(anchorQuat.w);
+          && Number.isFinite(anchorQuat.x) && Number.isFinite(anchorQuat.y) && Number.isFinite(anchorQuat.z) && Number.isFinite(anchorQuat.w)
+          && anchorScale.x !== 0;
         if (finite) {
           const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
           const k = 1 - Math.exp(-lambda * dt);
