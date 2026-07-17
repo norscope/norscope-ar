@@ -180,6 +180,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const gLocal = new THREE.Vector3();
   const camSmoothWorld = new THREE.Vector3();   // low-pass filtered camera position (world space)
   let camSmoothInit = false;
+  const anchorPos = new THREE.Vector3();
+  const anchorQuat = new THREE.Quaternion();
+  const anchorScale = new THREE.Vector3();
   const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
@@ -487,10 +490,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     scanhint.style.display = 'none';
     revealT = performance.now();
     ctaArmed = true;
-    anchorSmoothInit = false;   // snap to the card's current pose next frame, don't sweep in from wherever root last was
-    root.visible = true;
   };
-  anchor.onTargetLost = () => { scanhint.style.display = 'block'; ctaArmed = false; root.visible = false; };
+  anchor.onTargetLost = () => { scanhint.style.display = 'block'; ctaArmed = false; };
 
   try {
     await mindarThree.start();
@@ -503,21 +504,27 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       mixers.forEach(m => m.update(dt));
 
       // Smoothly chase MindAR's raw tracked pose (see the note by `root`'s
-      // declaration). dt-scaled so it behaves consistently regardless of the
-      // device's actual frame rate, instead of a fixed per-frame lerp factor
-      // (which would filter more aggressively at low fps and barely at all
-      // at high fps).
+      // declaration). MindAR writes the tracked pose directly into
+      // anchor.group.matrix (with matrixAutoUpdate disabled) and NEVER syncs
+      // .position/.quaternion — reading those directly always returns the
+      // identity/default, which is what caused the "chaos" after the last
+      // change. The correct read is the composed matrixWorld, decomposed here.
+      anchor.group.updateMatrixWorld(true);
+      root.visible = anchor.group.visible;
       if (root.visible) {
+        anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
         const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
         const k = 1 - Math.exp(-lambda * dt);
         if (!anchorSmoothInit) {
-          root.position.copy(anchor.group.position);
-          root.quaternion.copy(anchor.group.quaternion);
+          root.position.copy(anchorPos);
+          root.quaternion.copy(anchorQuat);
           anchorSmoothInit = true;
         } else {
-          root.position.lerp(anchor.group.position, k);
-          root.quaternion.slerp(anchor.group.quaternion, k);
+          root.position.lerp(anchorPos, k);
+          root.quaternion.slerp(anchorQuat, k);
         }
+      } else {
+        anchorSmoothInit = false;   // next found-frame snaps instead of gliding in from stale data
       }
 
       // scan-in reveal: root scales in fast, then elements pop in staged
