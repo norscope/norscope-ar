@@ -163,6 +163,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   scene.add(front);
 
   const anchor = mindarThree.addAnchor(0);
+
+  // ---- editor state (declared EARLY: setupEditor is called later in this
+  // same scope, and let/const after the call site would crash with a
+  // temporal-dead-zone ReferenceError, killing the whole start flow) ----
+  let editTarget = null;
+  const editBase = new Map();
+  function isEditing(obj) { return editTarget === obj; }
+  function editBaseZ(obj, fb) { const b = editBase.get(obj); return b ? b.z : fb; }
+  function editBaseScale(obj, fb) { const b = editBase.get(obj); return b ? b.scale : fb; }
   const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
@@ -345,12 +354,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ];
   setupEditor(EDITABLE);
 
-  // ================= EDITOR MODE implementation (Aero-style live positioning) =================
-  let editTarget = null;                 // the group currently being edited
-  const editBase = new Map();            // obj -> {z, scale} authored baseline for idle anim
-  function isEditing(obj) { return editTarget === obj; }
-  function editBaseZ(obj, fb) { const b = editBase.get(obj); return b ? b.z : fb; }
-  function editBaseScale(obj, fb) { const b = editBase.get(obj); return b ? b.scale : fb; }
+  // (editor state is declared early, right after the anchor — see above)
 
   function setupEditor(list) {
     list.forEach(e => editBase.set(e.obj, { z: e.obj.position.z, scale: e.obj.scale.x }));
