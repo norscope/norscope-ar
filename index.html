@@ -656,85 +656,125 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   }
 
   function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
-    const cw = 512, ch = 640;
+    const cw = 600, ch = 720;
     const fc = document.createElement('canvas');
     fc.width = cw; fc.height = ch;
     const ctx = fc.getContext('2d');
-    // Glass background
-    ctx.fillStyle = 'rgba(8, 14, 28, 0.96)';
+
+    // Premium dark-glass gradient background
+    const bgGrd = ctx.createRadialGradient(cw/2, ch/2, 10, cw/2, ch/2, ch*0.8);
+    bgGrd.addColorStop(0, '#162235');
+    bgGrd.addColorStop(1, '#080d16');
+    ctx.fillStyle = bgGrd;
     ctx.beginPath();
-    ctx.roundRect(0, 0, cw, ch, 32);
+    ctx.roundRect(0, 0, cw, ch, 36);
     ctx.fill();
-    // Accent border
+
+    // Double glow border
     ctx.strokeStyle = accentColor;
-    ctx.lineWidth = 7;
-    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.85;
     ctx.beginPath();
-    ctx.roundRect(4, 4, cw-8, ch-8, 30);
+    ctx.roundRect(3, 3, cw-6, ch-6, 33);
     ctx.stroke();
     ctx.globalAlpha = 1.0;
+
+    // Thin interior glass sheen border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(9, 9, cw-18, ch-18, 27);
+    ctx.stroke();
+
     // Top accent bar
     ctx.fillStyle = accentColor;
     ctx.globalAlpha = 0.20;
-    ctx.fillRect(4, 4, cw-8, 10);
+    ctx.fillRect(9, 9, cw-18, 8);
     ctx.globalAlpha = 1.0;
+
     // Avatar circle photo
-    const r = 90, cx2 = cw/2, cy2 = 140;
+    const r = 96, cx2 = cw/2, cy2 = 145;
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx2, cy2, r, 0, Math.PI*2);
     ctx.clip();
     drawCoverImage(ctx, avatarCanvas, cx2-r, cy2-r, r*2, r*2);
     ctx.restore();
+
     // Ring around photo
     ctx.strokeStyle = accentColor;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4;
     ctx.globalAlpha = 0.85;
     ctx.beginPath();
-    ctx.arc(cx2, cy2, r+3, 0, Math.PI*2);
+    ctx.arc(cx2, cy2, r+4, 0, Math.PI*2);
     ctx.stroke();
     ctx.globalAlpha = 1.0;
-    // Divider
-    ctx.strokeStyle = accentColor;
-    ctx.globalAlpha = 0.25;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(40, 256); ctx.lineTo(cw-40, 256);
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-    // Name
+
+    // Name - Space Grotesk
     ctx.fillStyle = '#f0f8ff';
-    ctx.font = 'bold 54px sans-serif';
+    ctx.font = 'bold 44px "Space Grotesk", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(name, cw/2, 300);
-    // Role
+    ctx.fillText(name, cw/2, 295);
+
+    // Role - IBM Plex Sans
     ctx.fillStyle = accentColor;
-    ctx.font = '36px sans-serif';
-    ctx.fillText(role, cw/2, 350);
+    ctx.font = 'bold 24px "IBM Plex Sans", sans-serif';
+    ctx.fillText(role.toUpperCase(), cw/2, 340);
+
     // Separator dots
     ctx.fillStyle = accentColor;
-    ctx.globalAlpha = 0.4;
-    [-24,0,24].forEach(dx => { ctx.beginPath(); ctx.arc(cw/2+dx, 385, 4, 0, Math.PI*2); ctx.fill(); });
+    ctx.globalAlpha = 0.35;
+    [-20, 0, 20].forEach(dx => {
+      ctx.beginPath();
+      ctx.arc(cw/2+dx, 375, 4, 0, Math.PI*2);
+      ctx.fill();
+    });
     ctx.globalAlpha = 1.0;
-    // Phone
-    ctx.fillStyle = '#a8c0d6';
-    ctx.font = '34px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('📞  ' + phone, 52, 440);
-    // Email
-    ctx.fillText('✉   ' + email, 52, 492);
-    // Norscope label
+
+    // Helper to draw rounded boxes for contact options
+    function drawContactBox(y, icon, label, text, isEmail) {
+      const bx = 44, bw = cw - 88, bh = 74, br = 14;
+      // Box fill
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.roundRect(bx, y, bw, bh, br);
+      ctx.fill();
+      // Box border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Icon on left
+      ctx.fillStyle = accentColor;
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(icon, bx + 22, y + 46);
+
+      // Value text on right
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = isEmail ? '500 21px "IBM Plex Sans", sans-serif' : '500 24px "IBM Plex Sans", sans-serif';
+      ctx.fillText(text, bx + 70, y + 45);
+    }
+
+    // Phone Row
+    drawContactBox(425, '📞', 'PHONE', phone, false);
+
+    // Email Row
+    drawContactBox(515, '✉', 'EMAIL', email, true);
+
+    // Norscope label/logo at bottom
     ctx.fillStyle = accentColor;
-    ctx.globalAlpha = 0.5;
-    ctx.font = 'bold 24px sans-serif';
+    ctx.globalAlpha = 0.55;
+    ctx.font = 'bold 20px "IBM Plex Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('NORSCOPE', cw/2, ch - 30);
+    ctx.fillText('NORSCOPE', cw/2, ch - 40);
     ctx.globalAlpha = 1.0;
+
     const tex = new THREE.CanvasTexture(fc);
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.275), mat);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.23, 0.276), mat); // slightly wider geometry
     return plane;
   }
 
@@ -836,8 +876,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     if (isReopening) { expandedItem = null; return; }
     // Open the new one
     expandedItem = which;
-    if (which === 'sara') startExpandAnim(saraData.profileCard, 1.0, EXPAND_DURATION);
-    if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 1.0, EXPAND_DURATION);
+    if (which === 'sara') startExpandAnim(saraData.profileCard, 2.2, EXPAND_DURATION);
+    if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 2.2, EXPAND_DURATION);
   }
 
   function handleTap(clientX, clientY, targetEl) {
@@ -862,9 +902,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       if (hitsSaraCard.length > 0) {
         const uv = hitsSaraCard[0].uv;
         debugLog(`Sara-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
-        if (uv.y >= 0.17 && uv.y < 0.27) {
+        if (uv.y >= 0.15 && uv.y < 0.29) {
           window.location.href = 'mailto:sara.shafiei.sarvestani@tu-clausthal.de?subject=Kontakt%20Norscope';
-        } else if (uv.y >= 0.27 && uv.y < 0.37) {
+        } else if (uv.y >= 0.29 && uv.y < 0.43) {
           window.location.href = 'tel:+4915252993422';
         } else {
           openProfile('sara');
@@ -877,9 +917,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       if (hitsSiddhantCard.length > 0) {
         const uv = hitsSiddhantCard[0].uv;
         debugLog(`Siddhant-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
-        if (uv.y >= 0.17 && uv.y < 0.27) {
+        if (uv.y >= 0.15 && uv.y < 0.29) {
           window.location.href = 'mailto:siddhant.jude.rebello@tu-clausthal.de?subject=Kontakt%20Norscope';
-        } else if (uv.y >= 0.27 && uv.y < 0.37) {
+        } else if (uv.y >= 0.29 && uv.y < 0.43) {
           window.location.href = 'tel:+4915510350105';
         } else {
           openProfile('siddhant');
@@ -908,7 +948,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     // CTA button
     if (hitsCTA.length > 0) {
       debugLog('Tapped CTA Button -> Weiterleitung');
-      window.location.href = 'mailto:contact@norscope.com?subject=Pilotprojekt%20Norscope%20AR';
+      window.location.href = 'https://www.norscope.com/#/contact';
       return;
     }
     // Headset hub
@@ -1304,15 +1344,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             } else {
               // Zoom active object
               if (expandedItem === 'headset') {
-                targetScale = e.base * 1.5; // Zoom headset
-                targetPos.set(0.00, 0.02, 0.08); // Center headset slightly forward
+                targetScale = e.base * 2.5; // Zoom headset significantly
+                targetPos.set(0.00, 0.02, 0.20); // Center and fly closer to camera
               } else if (expandedItem.startsWith('feature')) {
-                targetScale = e.base * 1.8; // Make focused feature card huge
-                targetPos.set(0.00, 0.08, 0.08); // Fly to center
+                targetScale = e.base * 3.4; // Make focused feature card massive
+                targetPos.set(0.00, 0.08, 0.24); // Center and fly closest to camera for perfect reading
               } else if (expandedItem === 'sara') {
-                targetPos.set(-0.28, 0.02, 0.02); // Move Sara slightly right/up
+                targetPos.set(-0.28, 0.02, 0.05); // Move Sara slightly right/up
               } else if (expandedItem === 'siddhant') {
-                targetPos.set(0.28, 0.02, 0.02); // Move Siddhant slightly left/up
+                targetPos.set(0.28, 0.02, 0.05); // Move Siddhant slightly left/up
               }
             }
           }
@@ -1350,6 +1390,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         const t2 = anim.toScale > anim.fromScale ? easeOutBackLocal(p) : easeIn(p);
         const s = Math.max(0.0001, anim.fromScale + (anim.toScale - anim.fromScale) * t2);
         anim.card.scale.setScalar(s);
+        
+        // Dynamically fly card closer to camera when expanded
+        const targetZ = anim.toScale > 0.01 ? 0.18 : 0.08;
+        const fromZ = anim.toScale > 0.01 ? 0.08 : 0.18;
+        anim.card.position.z = fromZ + (targetZ - fromZ) * t2;
+
         if (p >= 1) expandAnims.splice(i, 1);
       }
 
