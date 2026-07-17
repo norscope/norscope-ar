@@ -353,13 +353,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   billboards.push(heroGroup);
 
   // ================= FEATURE CARDS — radiating from headset =================
-  // 5 features arranged with exact spatial coordinates to prevent overlap
+  // 3 features arranged with exact spatial coordinates to prevent overlap
   const FEATURES = [
-    { title: 'AR-ANLEITUNGEN', desc: 'Schritte direkt auf Anlagen sichtbar', icon: '◈', color: '#00aaff', x: -0.28, y: 0.18 },
-    { title: 'OFFLINE-FIRST',  desc: 'Kein Netz nötig — überall',          icon: '◉', color: '#00ffcc', x: -0.25, y: -0.16 },
-    { title: 'AUTO-PROTOKOLL', desc: 'Keine Schreibarbeit — automatisch',   icon: '◎', color: '#0088ff', x:  0.25, y: -0.16 },
-    { title: 'KI-DIAGNOSE',    desc: 'Fehler werden auto erkannt',          icon: '◍', color: '#7c3aff', x:  0.28, y: 0.18 },
-    { title: 'ISO-ZERTIFIZIERT', desc: 'Sicher & branchenkonform',          icon: '◆', color: '#ff6600', x:  0.00, y: 0.24 },
+    { title: 'EFFIZIENZ', desc: 'AR-Anleitungen direkt am Bauteil. Funktioniert komplett offline. Wartung automatisch dokumentiert.', icon: '◈', color: '#00aaff', x: -0.28, y: 0.16 },
+    { title: 'KNOW-HOW', desc: 'Neue Fachkräfte lernen direkt am Gerät. Erfahrungswissen bleibt im Unternehmen. Schulungszeit spürbar verkürzt.', icon: '◉', color: '#00ffcc', x: 0.00, y: 0.22 },
+    { title: 'COMPLIANCE', desc: 'Jeder Schritt lückenlos erfasst. Fälschungssicher archiviert. Bereit für DGUV- & Arbeitsschutz-Prüfungen.', icon: '◆', color: '#ffb700', x: 0.28, y: 0.16 },
   ];
 
   const featureGroups = [];
@@ -720,7 +718,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     './assets/siddhant-avatar.glb',
     'Siddhant Jain', 'Co-Founder & CTO',
     '+49 160 000 0002', 'siddhant@norscope.com',
-    '#7c3aff', 0.44
+    '#c084fc', 0.44
   );
   const saraGroup = saraData.group;
   const siddhantGroup = siddhantData.group;
@@ -743,13 +741,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     // Close whatever is open
     if (expandedItem === 'sara') startExpandAnim(saraData.profileCard, 0.0001, 200);
     if (expandedItem === 'siddhant') startExpandAnim(siddhantData.profileCard, 0.0001, 200);
-    if (expandedItem === 'headset') { /* headset collapses */ startExpandAnim(heroGroup, 1.0, 200); }
     if (isReopening) { expandedItem = null; return; }
     // Open the new one
     expandedItem = which;
     if (which === 'sara') startExpandAnim(saraData.profileCard, 1.0, EXPAND_DURATION);
     if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 1.0, EXPAND_DURATION);
-    if (which === 'headset') startExpandAnim(heroGroup, 1.35, EXPAND_DURATION);
   }
 
   function handleTap(clientX, clientY) {
@@ -1121,11 +1117,42 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 1.8) * 0.006;
 
       // CTA: stationary
-      if (!isEditing(ctaGroup) && revealT === null) {
+      if (!isEditing(ctaGroup) && revealT === null && expandedItem === null) {
         ctaGroup.scale.setScalar(editBaseScale(ctaGroup, 1.80));
       }
 
-      // Expand/Collapse animations (easeOutBack for open, easeIn for close)
+      // Smooth focus/unfocus scale transition for all elements
+      if (revealT === null) {
+        const activeGroup = (expandedItem === 'sara') ? saraGroup :
+                            (expandedItem === 'siddhant') ? siddhantGroup :
+                            (expandedItem === 'headset') ? heroGroup : null;
+
+        entrances.forEach(e => {
+          if (isEditing(e.obj)) return;
+          let targetScale = e.base;
+          if (activeGroup !== null) {
+            if (e.obj !== activeGroup) {
+              targetScale = 0.0001; // Hide other elements
+            } else if (expandedItem === 'headset') {
+              targetScale = e.base * 1.35; // Zoom headset
+            }
+          }
+          const rate = 10.0 * dt;
+          e.obj.scale.setScalar(THREE.MathUtils.lerp(e.obj.scale.x, targetScale, Math.min(1, rate)));
+        });
+
+        // Fade connector lines
+        connectorLines.forEach(({ mat }) => {
+          const targetOpacity = (expandedItem !== null) ? 0.0 : 0.4;
+          mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, Math.min(1, 12.0 * dt));
+        });
+
+        // Hide logo if any item is expanded
+        const targetLogoScale = (expandedItem !== null) ? 0.0001 : 1.0;
+        logoGroup.scale.setScalar(THREE.MathUtils.lerp(logoGroup.scale.x, targetLogoScale, Math.min(1, 10.0 * dt)));
+      }
+
+      // Expand/Collapse animations for canvas profiles (easeOutBack for open, easeIn for close)
       function easeOutBackLocal(p) { const c=1.5; return 1+(c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2); }
       function easeIn(p) { return p*p; }
       const now2 = performance.now();
