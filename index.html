@@ -38,10 +38,7 @@
   /* ---- scanning hint ---- */
   #scanhint{position:fixed;left:0;right:0;bottom:40px;z-index:15;display:none;
     text-align:center;pointer-events:none;}
-  #debug{position:fixed;top:14px;left:14px;z-index:30;background:rgba(18,24,31,.85);
-    color:#4fd1c5;font-family:'IBM Plex Mono',monospace;font-size:10px;
-    padding:6px 9px;border:1px solid #33404d;max-width:220px;line-height:1.5;
-    white-space:pre-line;}
+  #debug{display:none;}
   /* ---- editor mode ---- */
   #ed-toggle{position:fixed;top:14px;right:14px;z-index:30;width:44px;height:44px;
     border-radius:50%;border:none;background:#0066cc;color:#fff;font-size:20px;
@@ -118,6 +115,7 @@ const errEl = document.getElementById('err');
 const scanhint = document.getElementById('scanhint');
 const debugEl = document.getElementById('debug');
 let debugLines = [];
+let pitchStand;
 function debugLog(line) {
   debugLines.push(line);
   if (debugLines.length > 7) debugLines.shift();
@@ -294,6 +292,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     solid.applyMatrix4(child.matrixWorld);
     productGroup.add(solid);
   });
+
   const headsetSpin = new THREE.Group();
   headsetSpin.add(productGroup);
   const headsetTilt = new THREE.Group();
@@ -305,32 +304,157 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const heroRing1 = glowRing(0.062, 0.0032, 0x0066cc, 0.5);
   const heroRing2 = glowRing(0.078, 0.0016, 0x0066cc, 0.28);
   heroRing1.position.y = 0.001; heroRing2.position.y = 0.001;   // on the card surface
-  heroGroup.add(heroRing1, heroRing2);
+  
+  const scanBeam = beam(0.12, 0.05, 0x00a3ff);
+  scanBeam.visible = false;
+  
+  heroGroup.add(heroRing1, heroRing2, scanBeam);
   glowPulses.push({ mesh: heroRing1, base: 0.5 }, { mesh: heroRing2, base: 0.28 });
 
-  heroGroup.rotation.x = Math.PI / 2;          // pop-up: rises out of the card
-  heroGroup.position.set(0.34, 0.02, 0.005);   // right side of the card
-  flat.add(heroGroup);
+  heroGroup.rotation.x = 0; // stands upright relative to pitchStand
+  // (Will be positioned and added to pitchStand instead)
 
-  // ================= HERO: the pitch card — large, central, floating above the card =================
-  const pitch = makeUnlit((await load('./assets/norscope-pitch.glb')).scene);
-  const pbox = new THREE.Box3().setFromObject(pitch);
-  const pc = pbox.getCenter(new THREE.Vector3());
-  const pitchGroup = new THREE.Group();     // outer: yaws toward camera (billboard)
-  pitch.position.set(-pc.x, -pbox.min.y + 0.01, -pbox.min.z);  // bottom edge on the card
-  pitch.scale.setScalar(1.25);                // bigger — this is the hero
-  const pitchStand = new THREE.Group();       // inner: pops the content upright
+  // ================= HERO: the pitch card — Canvas-based 3D Hologram Panel =================
+  const pitchGroup = new THREE.Group();     // outer: pop-up group
+  
+  const pitchCanvas = document.createElement('canvas');
+  pitchCanvas.width = 1024; pitchCanvas.height = 1536;
+  const pCtx = pitchCanvas.getContext('2d');
+  const pTex = new THREE.CanvasTexture(pitchCanvas);
+  
+  // Configure high-quality filtering
+  pTex.minFilter = THREE.LinearFilter;
+  pTex.generateMipmaps = false;
+  
+  const pMat = new THREE.MeshBasicMaterial({ map: pTex, transparent: true, side: THREE.DoubleSide });
+  const pPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.57), pMat);
+
+  // ---- combined 3D logo + NORSCOPE lockup, crowning the top of the Pitch Card (flattened!) ----
+  const lockup = makeUnlit((await load('./assets/logo-lockup.glb')).scene);
+  lockup.scale.set(1.0, 1.0, 0.01); // mathematically flat (zero Z-depth!), scaled down to prevent bleed
+  lockup.position.set(0.0, 0.21, 0.001); // positioned higher (near top edge y=0.285)
+  pPlane.add(lockup);
+  
+  let simStatusText = '> SYSTEM ONLINE. READY TO TEST.';
+  
+  function wrapText(context, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = context.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        context.fillText(line, x, currentY);
+        line = words[n] + ' ';
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    context.fillText(line, x, currentY);
+  }
+  
+  function drawPitchText() {
+    pCtx.fillStyle = '#f8fafc'; // Slate-50 light background
+    pCtx.fillRect(0, 0, 1024, 1536);
+    
+    // Deep blue accent border
+    pCtx.strokeStyle = '#0284c7';
+    pCtx.lineWidth = 18;
+    pCtx.strokeRect(25, 25, 974, 1486);
+    
+    // Large, punchy, novel statement (shifted down to leave space for flat logo model at top)
+    pCtx.textAlign = 'left';
+    pCtx.fillStyle = '#0284c7'; // Accent sky blue
+    pCtx.font = 'bold 64px sans-serif';
+    wrapText(pCtx, 'Die Zukunft der Instandhaltung.', 80, 420, 864, 80);
+    
+    // Minimal high-impact novel pitch
+    const bullets = [
+      { title: 'AR-ANLEITUNGEN', desc: 'Schritte erscheinen als Overlays direkt auf echten Industrieanlagen.' },
+      { title: 'OFFLINE-FIRST', desc: 'Arbeitet komplett ohne Netz in jedem Keller und jeder Werkhalle.' },
+      { title: 'AUTO-PROTOKOLL', desc: 'Automatischer Instandhaltungsnachweis ganz ohne Schreibarbeit.' }
+    ];
+    
+    bullets.forEach((bullet, index) => {
+      const y = 660 + index * 250;
+      
+      // Title
+      pCtx.fillStyle = '#0f172a';
+      pCtx.font = 'bold 46px sans-serif';
+      pCtx.fillText(bullet.title, 80, y);
+      
+      // Description
+      pCtx.fillStyle = '#475569'; // Slate-600
+      pCtx.font = '34px sans-serif';
+      wrapText(pCtx, bullet.desc, 80, y + 54, 864, 46);
+    });
+    
+    // Clean status bar at bottom
+    pCtx.fillStyle = '#0284c7';
+    pCtx.font = 'bold 34px monospace';
+    pCtx.fillText(simStatusText, 80, 1430);
+    
+    pTex.needsUpdate = true;
+  }
+  
+  drawPitchText();
+  
+  pitchStand = new THREE.Group();
   pitchStand.rotation.x = Math.PI / 2;
-  pitchStand.add(pitch);
+  pitchStand.add(pPlane);
+  // Float headset above the top edge of the pitch billboard
+  heroGroup.position.set(0.0, 0.34, 0.03);
+  pitchStand.add(heroGroup);
+
+  // Floating holographic "SIMULATE" button next to the headset
+  const simBtnGroup = new THREE.Group();
+  const simBtnGeo = new THREE.BoxGeometry(0.09, 0.026, 0.005);
+  const simBtnMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+  const simBtnMesh = new THREE.Mesh(simBtnGeo, simBtnMat);
+  simBtnGroup.add(simBtnMesh);
+  
+  const simBtnEdges = new THREE.EdgesGeometry(simBtnGeo);
+  const simBtnLine = new THREE.LineSegments(simBtnEdges, new THREE.LineBasicMaterial({ color: 0x00ffcc }));
+  simBtnGroup.add(simBtnLine);
+  
+  const btnCanvas = document.createElement('canvas');
+  btnCanvas.width = 256; btnCanvas.height = 64;
+  const btnCtx = btnCanvas.getContext('2d');
+  btnCtx.fillStyle = 'rgba(12, 16, 22, 0.95)';
+  btnCtx.fillRect(0, 0, 256, 64);
+  btnCtx.strokeStyle = '#00ffcc';
+  btnCtx.lineWidth = 4;
+  btnCtx.strokeRect(2, 2, 252, 60);
+  btnCtx.fillStyle = '#00ffcc';
+  btnCtx.font = 'bold 26px "IBM Plex Mono", monospace';
+  btnCtx.textAlign = 'center';
+  btnCtx.textBaseline = 'middle';
+  btnCtx.shadowColor = '#00ffcc';
+  btnCtx.shadowBlur = 6;
+  btnCtx.fillText('SIMULATION', 128, 32);
+  
+  const btnTex = new THREE.CanvasTexture(btnCanvas);
+  const btnMat = new THREE.MeshBasicMaterial({ map: btnTex, transparent: true, side: THREE.DoubleSide });
+  const btnTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.086, 0.022), btnMat);
+  btnTextMesh.position.z = 0.003;
+  simBtnGroup.add(btnTextMesh);
+  
+  simBtnGroup.position.set(0.16, 0.34, 0.035); // next to the headset
+  simBtnGroup.rotation.x = 0; // upright matching pitchStand
+  pitchStand.add(simBtnGroup);
+
   pitchGroup.add(pitchStand);
   pitchGroup.position.set(0.0, 0.10, 0.005);
   flat.add(pitchGroup);
   billboards.push(pitchGroup);
 
-
   // ================= CTA button — below the pitch card =================
   const cta = makeUnlit((await load('./assets/cta-button.glb')).scene);
-  const ctaGroup = new THREE.Group();       // outer: billboard yaw
+  cta.scale.setScalar(1.50); // enlarge CTA button by 50%
+  const ctaGroup = new THREE.Group();       // outer: rigid pop-up
   const ctaStand = new THREE.Group();
   ctaStand.rotation.x = Math.PI / 2;
   ctaStand.position.z = 0.03;                 // slight lift above the card
@@ -345,15 +469,25 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   let ctaArmed = false;
   function tryTapCTA(clientX, clientY) {
     if (!ctaArmed) return;
-    if (editTarget !== null) return; // Disable CTA click during editing/positioning
+    if (editTarget !== null) return; // Disable clicks during editing/positioning
     const canvas = renderer.domElement;
     const rect = canvas.getBoundingClientRect();
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObject(ctaGroup, true);
-    if (hits.length > 0) {
+    
+    // Check main contact CTA
+    const hitsCTA = raycaster.intersectObject(ctaGroup, true);
+    if (hitsCTA.length > 0) {
       window.location.href = 'https://www.norscope.com/#/contact';
+      return;
+    }
+    
+    // Check simulation trigger button
+    const hitsSim = raycaster.intersectObject(simBtnGroup, true);
+    if (hitsSim.length > 0) {
+      startMaintenanceSimulation();
+      return;
     }
   }
   const arContainer = document.getElementById('ar-container');
@@ -369,12 +503,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   async function addFounder(avatarUrl, stageUrl, x, y, leanInward) {
     const g = new THREE.Group();
 
-    // projection ring lies flat on the card at her feet
-    const ring1 = glowRing(0.055, 0.0032, 0x0066cc, 0.5);
-    const ring2 = glowRing(0.070, 0.0016, 0x0066cc, 0.28);
-    ring1.position.y = 0.001; ring2.position.y = 0.001;   // flat on the card
-    g.add(ring1, ring2);
-    glowPulses.push({ mesh: ring1, base: 0.5 }, { mesh: ring2, base: 0.28 });
+    // projection ring lies flat on the card at their feet (single ring)
+    const ring = glowRing(0.055, 0.0032, 0x0066cc, 0.5);
+    ring.position.y = 0.001;   // flat on the card
+    g.add(ring);
+    glowPulses.push({ mesh: ring, base: 0.5 });
 
     // avatar stands upright (its GLB is already Y-up), tall and prominent
     const gltf = await load(avatarUrl);
@@ -409,6 +542,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   }
   // LEFT, rising from mid-card and overtopping toward center (MyWebAR/Karolina style)
   const saraGroup = await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.34, -0.04, 0.35);
+  // RIGHT, rising from mid-card (replacing headset)
+  const siddhantGroup = await addFounder('./assets/siddhant-avatar-placeholder.glb', './assets/stage-siddhant.glb', 0.34, 0.02, -0.35);
 
   // ---- soft contact shadows on the card under each element ----
   function contactShadow(radius, x, y, opacity) {
@@ -422,15 +557,16 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   }
   contactShadow(0.16, 0.0, 0.10, 0.07);     // pitch
   contactShadow(0.075, -0.34, -0.04, 0.09); // sara
-  contactShadow(0.075, 0.34, 0.02, 0.09);   // headset
+  contactShadow(0.075, 0.34, 0.02, 0.09);   // siddhant (formerly headset)
   contactShadow(0.10, 0.0, -0.24, 0.06);    // cta
 
   // ---- staged entrance: elements pop in one after another with overshoot ----
   const entrances = [
-    { obj: pitchGroup, delay: 0 },
-    { obj: saraGroup,  delay: 180 },
-    { obj: heroGroup,  delay: 340 },
-    { obj: ctaGroup,   delay: 500 },
+    { obj: pitchGroup,    delay: 0 },
+    { obj: saraGroup,     delay: 150 },
+    { obj: siddhantGroup, delay: 300 },
+    { obj: heroGroup,     delay: 450 },
+    { obj: ctaGroup,      delay: 600 },
   ];
   // capture each object's authored scale BEFORE zeroing for the entrance
   // animation — read after zeroing would always be 0.0001 (this fed a bug
@@ -438,16 +574,17 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   entrances.forEach(e => { e.base = e.obj.scale.x; });
   entrances.forEach(e => { e.obj.scale.setScalar(0.0001); });
   function easeOutBack(p) { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
-
+ 
   // ================= EDITOR MODE — live positioning, like Adobe Aero =================
   // Registered elements the editor can move/rotate/scale. Base scale captured
   // so the scale slider is relative to each element's authored size.
   const baseScaleOf = (obj) => entrances.find(e => e.obj === obj).base;
   const EDITABLE = [
-    { name: 'Pitch-Karte',   obj: pitchGroup,  baseScale: baseScaleOf(pitchGroup) },
-    { name: 'Sara (Avatar)', obj: saraGroup,   baseScale: baseScaleOf(saraGroup) },
-    { name: 'Headset',       obj: heroGroup,   baseScale: baseScaleOf(heroGroup) },
-    { name: 'Kontakt-Button',obj: ctaGroup,    baseScale: baseScaleOf(ctaGroup) },
+    { name: 'Pitch-Karte',   obj: pitchGroup,    baseScale: baseScaleOf(pitchGroup) },
+    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
+    { name: 'Siddhant (Av)', obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
+    { name: 'Headset',       obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
+    { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
   ];
   setupEditor(EDITABLE);
 
@@ -542,7 +679,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     scanhint.style.display = 'block'; ctaArmed = false;
     targetVisible = false;
   };
-
   try {
     debugLog('mindarThree.start() läuft...');
     await mindarThree.start();
@@ -550,12 +686,46 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     startEl.style.display = 'none';
     scanhint.style.display = 'block';
     const clock = new THREE.Clock();
+    
+    // AR Maintenance Simulation state machine variables
+    let simState = 'idle';
+    let simStartTime = 0;
+    function startMaintenanceSimulation() {
+      if (simState === 'idle') {
+        simState = 'scanning';
+        simStartTime = clock.getElapsedTime();
+        simStatusText = '> DIAGNOSTICS: RUNNING SCAN...';
+        drawPitchText();
+        
+        btnCtx.fillStyle = 'rgba(12, 16, 22, 0.95)';
+        btnCtx.fillRect(0, 0, 256, 64);
+        btnCtx.strokeRect(2, 2, 252, 60);
+        btnCtx.fillStyle = '#ff8a3d';
+        btnCtx.fillText('SCANNING...', 128, 32);
+        btnTex.needsUpdate = true;
+      } else if (simState === 'completed') {
+        simState = 'idle';
+        heroRing1.material.color.setHex(0x0066cc);
+        heroRing2.material.color.setHex(0x0066cc);
+        
+        btnCtx.fillStyle = 'rgba(12, 16, 22, 0.95)';
+        btnCtx.fillRect(0, 0, 256, 64);
+        btnCtx.strokeRect(2, 2, 252, 60);
+        btnCtx.fillStyle = '#00ffcc';
+        btnCtx.fillText('SIMULATION', 128, 32);
+        btnTex.needsUpdate = true;
+
+        simStatusText = '> SYSTEM ONLINE. READY TO TEST.';
+        drawPitchText();
+      }
+    }
+
     renderer.setAnimationLoop(() => {
      try {
       const dt = clock.getDelta();
       const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
-
+ 
       // scan-in reveal scale factor: applied to root's tracking scale
       let revealScale = 1.0;
       if (revealT !== null) {
@@ -570,35 +740,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         });
         if (allDone) revealT = null;
       }
-
-      // Smoothly chase MindAR's raw tracked pose (see the note by `root`'s
-      // declaration). MindAR writes the tracked pose directly into
-      // anchor.group.matrix (with matrixAutoUpdate disabled) and NEVER syncs
-      // .position/.quaternion — reading those directly always returns the
-      // identity/default, which is what caused the "chaos" after the last
-      // change. The correct read is the composed matrixWorld, decomposed here.
-      //
-      // Visibility is driven by OUR OWN onTargetFound/onTargetLost callbacks
-      // (targetVisible), not anchor.group.visible — a test confirmed the
-      // callbacks fire correctly (the debug panel logs from inside them) but
-      // anchor.group.visible did not behave as assumed, which silently kept
-      // root invisible even after the target was found and correctly tracked.
+ 
+      // Smoothly chase MindAR's raw tracked pose
       anchor.group.updateMatrixWorld(true);
       root.visible = targetVisible;
       if (root.visible) {
         anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
         
-        // Defensive guard: if MindAR hasn't written a real pose yet on the
-        // very first frame after "found" (a possible one-frame race), the
-        // decomposed values could be garbage/identity/NaN. Applying that
-        // once would silently strand root at the wrong place forever after
-        // (since every later frame just lerps toward whatever came before).
-        // Skip applying corrupted data and keep whatever pose we already had.
         const finite = Number.isFinite(anchorPos.x) && Number.isFinite(anchorPos.y) && Number.isFinite(anchorPos.z)
           && Number.isFinite(anchorQuat.x) && Number.isFinite(anchorQuat.y) && Number.isFinite(anchorQuat.z) && Number.isFinite(anchorQuat.w)
           && anchorScale.x !== 0;
         if (finite) {
-          const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
+          const lambda = 6.0;   // lowered to 6.0 for stronger low-pass noise filtering
           const k = 1 - Math.exp(-lambda * dt);
           
           // Multiply target scale by the reveal animation factor so it grows smoothly
@@ -615,9 +768,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             root.scale.lerp(targetScale, k);
           }
         }
-        // Throttled live readout: proves definitively whether root ends up
-        // in a sane place (small, near-origin numbers) or a corrupted one
-        // (huge, zero, or NaN) — settles this without another guessing round.
         if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) {
           debugLog('pos ' + root.position.x.toFixed(2) + ',' + root.position.y.toFixed(2) + ',' + root.position.z.toFixed(2)
             + ' scl ' + anchorScale.x.toFixed(2) + ' rScl ' + root.scale.x.toFixed(3) + ' fin=' + finite);
@@ -626,62 +776,58 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         anchorSmoothInit = false;   // next found-frame snaps instead of gliding in from stale data
       }
 
-      // pitch card / CTA billboard: smoothly yaw toward the camera around the
-      // card normal — readable from every angle. The raw camera-relative
-      // position still carries a little tracking noise even with good filter
-      // settings, so it's smoothed here BEFORE computing an angle from it
-      // (smoothing the angle alone isn't enough — noise right at the atan2
-      // singularity near "camera roughly overhead" gets amplified into
-      // visible micro-rotation otherwise).
-      camera.getWorldPosition(camWorld);
-      const camK = 1 - Math.exp(-8 * dt);
-      if (!camSmoothInit) { camSmoothWorld.copy(camWorld); camSmoothInit = true; }
-      camSmoothWorld.lerp(camWorld, camK);
+      // Simulation State Machine calculations
+      if (simState === 'scanning') {
+        scanBeam.visible = true;
+        scanBeam.position.y = 0.05 + Math.sin(t * 10) * 0.04;
+        
+        const elapsed = t - simStartTime;
+        let changed = false;
+        
+        if (elapsed > 0.8 && simStatusText !== '> ANALYZING AR INTERFACES...') {
+          simStatusText = '> ANALYZING AR INTERFACES...';
+          changed = true;
+        }
+        if (elapsed > 1.6 && simStatusText !== '> ALIGNING OPTICAL CHANNEL...') {
+          simStatusText = '> ALIGNING OPTICAL CHANNEL...';
+          changed = true;
+        }
+        if (elapsed > 2.4 && simStatusText !== '> RUNNING CALIBRATION SWEEP...') {
+          simStatusText = '> RUNNING CALIBRATION SWEEP...';
+          changed = true;
+        }
+        if (changed) drawPitchText();
 
-      // pitch card / CTA billboard: yaw toward the camera around the card
-      // normal, recomputed directly every frame (standard billboard technique
-      // — see e.g. opengl-tutorial.org/billboards). The camera SAMPLE is
-      // low-pass filtered above, which is where smoothing belongs; smoothing
-      // the resulting ANGLE too (as an earlier version did, with a deadzone)
-      // caused chatter and could leave a panel stuck near edge-on to the
-      // camera — i.e. invisible despite double-sided material.
-      flat.worldToLocal(camLocal.copy(camSmoothWorld));
+        const scanDuration = 3.2;
+        if (elapsed > scanDuration) {
+          simState = 'completed';
+          
+          simStatusText = '> [✓] DIAGNOSTICS: 100% HEALTHY';
+          drawPitchText();
+          
+          heroRing1.material.color.setHex(0x00ffcc);
+          heroRing2.material.color.setHex(0x00ffcc);
+          
+          btnCtx.fillStyle = 'rgba(12, 16, 22, 0.95)';
+          btnCtx.fillRect(0, 0, 256, 64);
+          btnCtx.strokeRect(2, 2, 252, 60);
+          btnCtx.fillStyle = '#00ffcc';
+          btnCtx.fillText('RESET SIM', 128, 32);
+          btnTex.needsUpdate = true;
+          scanBeam.visible = false;
+        }
+      }
 
-      // 2-Axis Billboard for Pitch Card (always face camera directly)
-      const dxPitch = camLocal.x - pitchGroup.position.x;
-      const dyPitch = camLocal.y - pitchGroup.position.y;
-      const distPitch = Math.sqrt(dxPitch * dxPitch + dyPitch * dyPitch);
-      const dzPitch = camLocal.z - pitchGroup.position.z;
-      const pitchAngle = Math.atan2(dzPitch, distPitch);
-      pitchGroup.rotation.z = Math.atan2(dxPitch, -dyPitch);
-      pitchStand.rotation.x = Math.PI / 2 - pitchAngle;
-
-      // 2-Axis Billboard for CTA Button (always face camera directly)
-      const dxCTA = camLocal.x - ctaGroup.position.x;
-      const dyCTA = camLocal.y - ctaGroup.position.y;
-      const distCTA = Math.sqrt(dxCTA * dxCTA + dyCTA * dyCTA);
-      const dzCTA = camLocal.z - ctaGroup.position.z;
-      const ctaAngle = Math.atan2(dzCTA, distCTA);
-      ctaGroup.rotation.z = Math.atan2(dxCTA, -dyCTA);
-      ctaStand.rotation.x = Math.PI / 2 - ctaAngle;
-
-      // nameplate billboard: same idea, in the founder group's own local frame.
-      founderBillboards.forEach(({ yaw, holder }) => {
-        holder.worldToLocal(gLocal.copy(camSmoothWorld));
-        yaw.rotation.y = Math.atan2(gLocal.x, gLocal.z);
-      });
-
-      // headset: slow spin, floating accent (idle z-bob unless being edited)
+      // headset: slow spin (no bobbing to prevent tracking noise amplification)
       headsetSpin.rotation.y = t * 0.5;
-      if (!isEditing(heroGroup))  heroGroup.position.z  = editBaseZ(heroGroup, 0.005) + Math.sin(t * 1.1) * 0.004;
-
-      // pitch card (hero) + logo: gentle synchronized forward bob
-      if (!isEditing(pitchGroup)) pitchGroup.position.z = editBaseZ(pitchGroup, 0.005) + Math.sin(t * 1.3) * 0.004;
-
-      // CTA: gentle attention pulse (skip during entrance + while editing)
+      if (!isEditing(heroGroup))  heroGroup.position.z  = editBaseZ(heroGroup, 0.03);
+ 
+      // pitch card (hero) (no bobbing)
+      if (!isEditing(pitchGroup)) pitchGroup.position.z = editBaseZ(pitchGroup, 0.005);
+ 
+      // CTA: stationary (no scale-pulsing)
       if (!isEditing(ctaGroup) && revealT === null) {
-        const ctaPulse = editBaseScale(ctaGroup, 1) * (1 + Math.sin(t * 2.6) * 0.03);
-        ctaGroup.scale.setScalar(ctaPulse);
+        ctaGroup.scale.setScalar(editBaseScale(ctaGroup, 1));
       }
 
       // glow pulses on every ring
