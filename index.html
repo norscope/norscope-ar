@@ -294,7 +294,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const hbox = new THREE.Box3().setFromObject(headset);
   const hc = hbox.getCenter(new THREE.Vector3());
   const hSize = hbox.max.x - hbox.min.x;
-  const hScale = 0.22 / hSize;   // large central hero: 22 cm wide
+  const hScale = 0.17 / hSize;   // central hero: 17 cm wide (slightly smaller to prevent overlap)
   headset.scale.setScalar(hScale);
   headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
   headset.updateMatrixWorld(true);
@@ -337,27 +337,29 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   heroGroup.add(scanBeam);
 
   // Logo lockup floating above headset
+  // Logo lockup floating independently at top center
   const logoGroup = new THREE.Group();
   const lockup = makeUnlit((await load('./assets/logo-lockup.glb')).scene);
   lockup.scale.set(1.0, 1.0, 0.01);
   lockup.position.set(0, 0, 0);
   logoGroup.add(lockup);
-  heroGroup.add(logoGroup);
-  logoGroup.position.set(0, 0.30, 0.005);  // above headset
+  flat.add(logoGroup);
+  billboards.push(logoGroup);
+  logoGroup.position.set(0.00, 0.38, 0.005);
 
-  heroGroup.position.set(0.00, 0.08, 0.18);
+  heroGroup.position.set(0.00, 0.02, 0.03);
   heroGroup.scale.setScalar(1.00);
   flat.add(heroGroup);
   billboards.push(heroGroup);
 
   // ================= FEATURE CARDS — radiating from headset =================
-  // 5 features arranged in a semicircle around the headset
+  // 5 features arranged with exact spatial coordinates to prevent overlap
   const FEATURES = [
-    { title: 'AR-ANLEITUNGEN', desc: 'Schritte direkt auf Anlagen sichtbar', icon: '◈', color: '#00aaff', angle: -0.65, dist: 0.42, yOff: 0.10 },
-    { title: 'OFFLINE-FIRST',  desc: 'Kein Netz nötig — überall',          icon: '◉', color: '#00ffcc', angle: -0.22, dist: 0.40, yOff: 0.00 },
-    { title: 'AUTO-PROTOKOLL', desc: 'Keine Schreibarbeit — automatisch',   icon: '◎', color: '#0088ff', angle:  0.22, dist: 0.40, yOff: 0.00 },
-    { title: 'KI-DIAGNOSE',    desc: 'Fehler werden auto erkannt',          icon: '◍', color: '#7c3aff', angle:  0.65, dist: 0.42, yOff: 0.10 },
-    { title: 'ISO-ZERTIFIZIERT', desc: 'Sicher & branchenkonform',          icon: '◆', color: '#ff6600', angle:  0.00, dist: 0.46, yOff: -0.20 },
+    { title: 'AR-ANLEITUNGEN', desc: 'Schritte direkt auf Anlagen sichtbar', icon: '◈', color: '#00aaff', x: -0.28, y: 0.18 },
+    { title: 'OFFLINE-FIRST',  desc: 'Kein Netz nötig — überall',          icon: '◉', color: '#00ffcc', x: -0.25, y: -0.16 },
+    { title: 'AUTO-PROTOKOLL', desc: 'Keine Schreibarbeit — automatisch',   icon: '◎', color: '#0088ff', x:  0.25, y: -0.16 },
+    { title: 'KI-DIAGNOSE',    desc: 'Fehler werden auto erkannt',          icon: '◍', color: '#7c3aff', x:  0.28, y: 0.18 },
+    { title: 'ISO-ZERTIFIZIERT', desc: 'Sicher & branchenkonform',          icon: '◆', color: '#ff6600', x:  0.00, y: 0.24 },
   ];
 
   const featureGroups = [];
@@ -445,22 +447,20 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     stand.add(card);
     fg.add(stand);
 
-    // Position in flat space: radiate from center
-    const px = Math.sin(feat.angle) * feat.dist;
-    const py = Math.cos(feat.angle) * feat.dist * 0.35 + feat.yOff;
-    fg.position.set(px, py, 0.005);
+    // Position in flat space
+    fg.position.set(feat.x, feat.y, 0.005);
 
     // Contact shadow under card
     const shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.072, 40),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.08, depthWrite: false })
     );
-    shadow.position.set(px, py, 0.001);
+    shadow.position.set(feat.x, feat.y, 0.001);
     flat.add(shadow);
 
     // Glowing connector line: headset center → card
-    const origin = new THREE.Vector3(0.00, 0.08, 0.005);
-    const target = new THREE.Vector3(px, py, 0.005);
+    const origin = new THREE.Vector3(0.00, 0.02, 0.03);
+    const target = new THREE.Vector3(feat.x, feat.y, 0.005);
     const points = [origin, target];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
     const lineMat = new THREE.LineBasicMaterial({
@@ -486,7 +486,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.44, 0.000);
+  ctaGroup.position.set(0.000, -0.34, 0.000);
   ctaGroup.rotation.y = 0.00;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
@@ -502,8 +502,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(m);
     return m;
   }
-  contactShadow(0.18, 0.00, 0.08, 0.12);   // headset center
-  contactShadow(0.10, 0.00, -0.44, 0.06);  // CTA
+  contactShadow(0.14, 0.00, 0.02, 0.12);   // headset center
+  contactShadow(0.10, 0.00, -0.34, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -714,13 +714,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     './assets/sara-avatar.glb',
     'Sara Bergmann', 'Co-Founderin & CEO',
     '+49 160 000 0001', 'sara@norscope.com',
-    '#00ffcc', -0.36
+    '#00ffcc', -0.44
   );
   const siddhantData = await buildAvatarGroup(
     './assets/siddhant-avatar.glb',
     'Siddhant Jain', 'Co-Founder & CTO',
     '+49 160 000 0002', 'siddhant@norscope.com',
-    '#7c3aff', 0.36
+    '#7c3aff', 0.44
   );
   const saraGroup = saraData.group;
   const siddhantGroup = siddhantData.group;
@@ -1106,7 +1106,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // gentle hover bob for the headset (only when not expanded)
       if (!isEditing(heroGroup) && expandedItem !== 'headset') {
-        heroGroup.position.z = editBaseZ(heroGroup, 0.18) + Math.sin(t * 1.1) * 0.008;
+        heroGroup.position.z = editBaseZ(heroGroup, 0.03) + Math.sin(t * 1.1) * 0.008;
       }
 
       // feature cards: gentle individual float
