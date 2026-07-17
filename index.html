@@ -142,8 +142,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     imageTargetSrc: './assets/targets.mind',
     uiScanning: 'no',
     uiLoading: 'yes',
-    filterMinCF: 1,        // official card demo values: rigid, glued-to-card
-    filterBeta: 10000      // tracking instead of laggy smoothing
+    filterMinCF: 0.001,     // community-validated smooth values (aggressive
+    filterBeta: 10          // demo values caused visible vibration — see README)
   });
   const { renderer, scene, camera } = mindarThree;
   renderer.toneMapping = THREE.NoToneMapping;   // ACES crushed whites to gray
@@ -178,6 +178,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const camWorld = new THREE.Vector3();
   const camLocal = new THREE.Vector3();
   const gLocal = new THREE.Vector3();
+  const camSmoothWorld = new THREE.Vector3();   // low-pass filtered camera position (world space)
+  let camSmoothInit = false;
   const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
@@ -494,29 +496,38 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       }
 
       // pitch card / CTA billboard: smoothly yaw toward the camera around the
-      // card normal — readable from every angle, whether the card is lying
-      // flat on a table or held up facing the viewer.
+      // card normal — readable from every angle. The raw camera-relative
+      // position still carries a little tracking noise even with good filter
+      // settings, so it's smoothed here BEFORE computing an angle from it
+      // (smoothing the angle alone isn't enough — noise right at the atan2
+      // singularity near "camera roughly overhead" gets amplified into
+      // visible micro-rotation otherwise).
       camera.getWorldPosition(camWorld);
-      flat.worldToLocal(camLocal.copy(camWorld));
+      if (!camSmoothInit) { camSmoothWorld.copy(camWorld); camSmoothInit = true; }
+      camSmoothWorld.x += (camWorld.x - camSmoothWorld.x) * 0.06;
+      camSmoothWorld.y += (camWorld.y - camSmoothWorld.y) * 0.06;
+      camSmoothWorld.z += (camWorld.z - camSmoothWorld.z) * 0.06;
+
+      flat.worldToLocal(camLocal.copy(camSmoothWorld));
       billboards.forEach(b => {
         const dx = camLocal.x - b.position.x, dy = camLocal.y - b.position.y;
         const target = Math.atan2(dx, -dy);
         let d = target - b.rotation.z;
         while (d > Math.PI) d -= 2 * Math.PI;
         while (d < -Math.PI) d += 2 * Math.PI;
-        b.rotation.z += d * 0.12;   // damped follow, no snapping
+        if (Math.abs(d) > 0.008) b.rotation.z += d * 0.08;   // deadzone + slow damping
       });
 
       // nameplate billboard: same idea, but computed in the founder group's
       // OWN local frame (it carries the pop-up rotation), so it's correct
       // regardless of how the card itself is oriented in the world.
       founderBillboards.forEach(({ yaw, holder }) => {
-        holder.worldToLocal(gLocal.copy(camWorld));
+        holder.worldToLocal(gLocal.copy(camSmoothWorld));
         const target = Math.atan2(gLocal.x, gLocal.z);
         let d = target - yaw.rotation.y;
         while (d > Math.PI) d -= 2 * Math.PI;
         while (d < -Math.PI) d += 2 * Math.PI;
-        yaw.rotation.y += d * 0.12;
+        if (Math.abs(d) > 0.008) yaw.rotation.y += d * 0.08;
       });
 
       // headset: slow spin, floating accent (idle z-bob unless being edited)
