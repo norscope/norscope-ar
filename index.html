@@ -72,8 +72,8 @@
   <div class="tag">AR-Erlebnis</div>
   <p class="hint">
     Kamera erlauben und auf die <b>Rückseite der Norscope-Karte</b> richten.
-    Die Karte am besten flach hinlegen. Der Pitch und die Founder erscheinen
-    direkt auf der Karte.
+    Die Karte am besten flach hinlegen. Das Headset, die Founder-Avatare
+    und Feature-Cards erscheinen direkt auf der Karte. <b>Tippe auf einen Avatar</b> um sein Profil zu sehen.
   </p>
   <button id="startBtn">Start</button>
   <div id="fallback">Kamera-Probleme? <a href="viewer.html">3D-Ansicht ohne Karte öffnen</a></div>
@@ -116,7 +116,6 @@ const errEl = document.getElementById('err');
 const scanhint = document.getElementById('scanhint');
 const debugEl = document.getElementById('debug');
 let debugLines = [];
-let pitchStand;
 let exporting = false;
 function debugLog(line) {
   debugLines.push(line);
@@ -289,12 +288,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const glowPulses = [];  // {mesh, base}
 
-  // ================= headset — smaller floating accent, right of the pitch card =================
+  // ================= HUB: Central Headset =================
   const heroGroup = new THREE.Group();
   const headset = (await load('./assets/headset.glb')).scene;
   const hbox = new THREE.Box3().setFromObject(headset);
   const hc = hbox.getCenter(new THREE.Vector3());
-  const hScale = 0.10 / (hbox.max.x - hbox.min.x);   // smaller accent, 10cm
+  const hSize = hbox.max.x - hbox.min.x;
+  const hScale = 0.22 / hSize;   // large central hero: 22 cm wide
   headset.scale.setScalar(hScale);
   headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
   headset.updateMatrixWorld(true);
@@ -303,7 +303,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   headset.traverse((child) => {
     if (!child.isMesh) return;
     const solid = new THREE.Mesh(child.geometry, new THREE.MeshStandardMaterial({
-      color: 0x1c2229, roughness: 0.42, metalness: 0.25,
+      color: 0x1a2535, roughness: 0.35, metalness: 0.55,
+      envMapIntensity: 1.2,
     }));
     solid.applyMatrix4(child.matrixWorld);
     productGroup.add(solid);
@@ -313,224 +314,185 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   headsetSpin.add(productGroup);
   const headsetTilt = new THREE.Group();
   headsetTilt.add(headsetSpin);
-  headsetTilt.rotation.x = -0.25;
-  headsetTilt.position.y = 0.075;               // hover height above the card
+  headsetTilt.rotation.x = -0.20;
+  headsetTilt.position.y = 0.08;   // hover above card
   heroGroup.add(headsetTilt);
 
-  const heroRing1 = glowRing(0.062, 0.0032, 0x0066cc, 0.5);
-  const heroRing2 = glowRing(0.078, 0.0016, 0x0066cc, 0.28);
-  heroRing1.position.y = 0.001; heroRing2.position.y = 0.001;   // on the card surface
-  
-  const scanBeam = beam(0.12, 0.05, 0x00a3ff);
-  scanBeam.visible = false;
-  
-  heroGroup.add(heroRing1, heroRing2, scanBeam);
-  glowPulses.push({ mesh: heroRing1, base: 0.5 }, { mesh: heroRing2, base: 0.28 });
+  // Glow rings around headset
+  const heroRing1 = glowRing(0.13, 0.004, 0x0088ff, 0.55);
+  const heroRing2 = glowRing(0.165, 0.002, 0x00aaff, 0.28);
+  const heroRing3 = glowRing(0.20, 0.0012, 0x00ccff, 0.14);
+  heroRing1.position.y = 0.002;
+  heroRing2.position.y = 0.002;
+  heroRing3.position.y = 0.002;
+  heroGroup.add(heroRing1, heroRing2, heroRing3);
+  glowPulses.push(
+    { mesh: heroRing1, base: 0.55 },
+    { mesh: heroRing2, base: 0.28 },
+    { mesh: heroRing3, base: 0.14 }
+  );
 
-  heroGroup.rotation.x = 0; // stands upright relative to pitchStand
-  // (Will be positioned and added to pitchStand instead)
+  // Vertical hologram beam
+  const scanBeam = beam(0.22, 0.09, 0x0066ff);
+  heroGroup.add(scanBeam);
 
-  // ================= HERO: the pitch card — Canvas-based 3D Hologram Panel =================
-  const pitchGroup = new THREE.Group();     // outer: pop-up group
-  
-  const pitchCanvas = document.createElement('canvas');
-  pitchCanvas.width = 2048; pitchCanvas.height = 3072;
-  const pCtx = pitchCanvas.getContext('2d');
-  const pTex = new THREE.CanvasTexture(pitchCanvas);
-  
-  // Configure high-quality filtering
-  pTex.minFilter = THREE.LinearFilter;
-  pTex.generateMipmaps = false;
-  
-  const pMat = new THREE.MeshBasicMaterial({ map: pTex, transparent: true, side: THREE.DoubleSide });
-  const pPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.57), pMat);
-
-  // ---- combined 3D logo + NORSCOPE lockup, crowning the top of the Pitch Card (flattened!) ----
+  // Logo lockup floating above headset
+  const logoGroup = new THREE.Group();
   const lockup = makeUnlit((await load('./assets/logo-lockup.glb')).scene);
-  lockup.scale.set(1.0, 1.0, 0.01); // mathematically flat (zero Z-depth!), scaled down to prevent bleed
-  lockup.position.set(0.0, 0.21, 0.001); // positioned higher (near top edge y=0.285)
-  pPlane.add(lockup);
-  
-  let simStatusText = '> NORSCOPE AR ENGINE. OFFLINE-FIRST.';
-  
-  function wrapText(context, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(' ');
-    let line = '';
-    let currentY = y;
-    for (let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + ' ';
-      const metrics = context.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        context.fillText(line, x, currentY);
-        line = words[n] + ' ';
-        currentY += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-    context.fillText(line, x, currentY);
-  }
-  
-  function drawPitchText() {
-    pCtx.fillStyle = '#f8fafc'; // Slate-50 light background
-    pCtx.fillRect(0, 0, 2048, 3072);
-    
-    // Deep blue accent border
-    pCtx.strokeStyle = '#0284c7';
-    pCtx.lineWidth = 36;
-    pCtx.strokeRect(50, 50, 1948, 2972);
-    
-    // Large, punchy, novel statement (shifted down to leave space for flat logo model at top)
-    pCtx.textAlign = 'left';
-    pCtx.fillStyle = '#0284c7'; // Accent sky blue
-    pCtx.font = 'bold 128px sans-serif';
-    wrapText(pCtx, 'Die Zukunft der Instandhaltung.', 160, 840, 1728, 160);
-    
-    // Minimal high-impact novel pitch
-    const bullets = [
-      { title: 'AR-ANLEITUNGEN', desc: 'Schritte erscheinen als Overlays direkt auf echten Industrieanlagen.' },
-      { title: 'OFFLINE-FIRST', desc: 'Arbeitet komplett ohne Netz in jedem Keller und jeder Werkhalle.' },
-      { title: 'AUTO-PROTOKOLL', desc: 'Automatischer Instandhaltungsnachweis ganz ohne Schreibarbeit.' }
-    ];
-    
-    bullets.forEach((bullet, index) => {
-      const y = 1320 + index * 500;
-      
-      // Title
-      pCtx.fillStyle = '#0f172a';
-      pCtx.font = 'bold 92px sans-serif';
-      pCtx.fillText(bullet.title, 160, y);
-      
-      // Description
-      pCtx.fillStyle = '#475569'; // Slate-600
-      pCtx.font = '68px sans-serif';
-      wrapText(pCtx, bullet.desc, 160, y + 108, 1728, 92);
-    });
-    
-    // Clean static tagline at bottom (Simulation text under Headset is gone)
-    pCtx.fillStyle = '#0284c7';
-    pCtx.font = 'bold 68px monospace';
-    pCtx.fillText(simStatusText, 160, 2860);
-    
-    pTex.needsUpdate = true;
-  }
-  
-  drawPitchText();
-  
-  pitchStand = new THREE.Group();
-  pitchStand.rotation.x = Math.PI / 2;
-  pitchStand.add(pPlane);
-  // Float headset above the top edge of the pitch billboard (using user coordinates)
-  heroGroup.position.set(0.040, 0.355, 0.000);
-  heroGroup.rotation.y = 0.00;
+  lockup.scale.set(1.0, 1.0, 0.01);
+  lockup.position.set(0, 0, 0);
+  logoGroup.add(lockup);
+  heroGroup.add(logoGroup);
+  logoGroup.position.set(0, 0.30, 0.005);  // above headset
+
+  heroGroup.position.set(0.00, 0.08, 0.18);
   heroGroup.scale.setScalar(1.00);
-  pitchStand.add(heroGroup);
+  flat.add(heroGroup);
+  billboards.push(heroGroup);
 
-  pitchGroup.add(pitchStand);
-  pitchGroup.position.set(0.090, 0.500, 0.270);
-  pitchGroup.rotation.y = 0.22;
-  pitchGroup.scale.setScalar(1.72);
-  flat.add(pitchGroup);
-  billboards.push(pitchGroup);
+  // ================= FEATURE CARDS — radiating from headset =================
+  // 5 features arranged in a semicircle around the headset
+  const FEATURES = [
+    { title: 'AR-ANLEITUNGEN', desc: 'Schritte direkt auf Anlagen sichtbar', icon: '◈', color: '#00aaff', angle: -0.65, dist: 0.42, yOff: 0.10 },
+    { title: 'OFFLINE-FIRST',  desc: 'Kein Netz nötig — überall',          icon: '◉', color: '#00ffcc', angle: -0.22, dist: 0.40, yOff: 0.00 },
+    { title: 'AUTO-PROTOKOLL', desc: 'Keine Schreibarbeit — automatisch',   icon: '◎', color: '#0088ff', angle:  0.22, dist: 0.40, yOff: 0.00 },
+    { title: 'KI-DIAGNOSE',    desc: 'Fehler werden auto erkannt',          icon: '◍', color: '#7c3aff', angle:  0.65, dist: 0.42, yOff: 0.10 },
+    { title: 'ISO-ZERTIFIZIERT', desc: 'Sicher & branchenkonform',          icon: '◆', color: '#ff6600', angle:  0.00, dist: 0.46, yOff: -0.20 },
+  ];
 
-  // ================= CTA button — below the pitch card =================
+  const featureGroups = [];
+  const connectorLines = [];   // glowing connector lines headset → card
+
+  function makeFeatureCard(feat) {
+    const cw = 512, ch = 340;
+    const fc = document.createElement('canvas');
+    fc.width = cw; fc.height = ch;
+    const ctx = fc.getContext('2d');
+
+    // Dark-glass background
+    ctx.fillStyle = 'rgba(8, 14, 28, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cw, ch, 28);
+    ctx.fill();
+
+    // Accent glow border
+    ctx.strokeStyle = feat.color;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.roundRect(3, 3, cw - 6, ch - 6, 26);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Top accent bar
+    ctx.fillStyle = feat.color;
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.roundRect(3, 3, cw - 6, 8, [26, 26, 0, 0]);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+
+    // Icon
+    ctx.fillStyle = feat.color;
+    ctx.font = 'bold 64px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(feat.icon, 56, 80);
+
+    // Title
+    ctx.fillStyle = '#f0f8ff';
+    ctx.font = 'bold 46px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(feat.title, 100, 76);
+
+    // Separator
+    ctx.strokeStyle = feat.color;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(24, 108);
+    ctx.lineTo(cw - 24, 108);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Description (word-wrapped)
+    ctx.fillStyle = '#a8c0d6';
+    ctx.font = '38px sans-serif';
+    ctx.textAlign = 'left';
+    const words = feat.desc.split(' ');
+    let line = '', lines = [], x = 24, maxW = cw - 48;
+    words.forEach(w => {
+      const test = line + w + ' ';
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line.trim()); line = w + ' '; }
+      else { line = test; }
+    });
+    if (line.trim()) lines.push(line.trim());
+    lines.forEach((l, i) => ctx.fillText(l, x, 164 + i * 52));
+
+    const tex = new THREE.CanvasTexture(fc);
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
+
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.14), mat);
+    return plane;
+  }
+
+  for (const feat of FEATURES) {
+    const fg = new THREE.Group();
+    const card = makeFeatureCard(feat);
+    const stand = new THREE.Group();
+    stand.rotation.x = Math.PI / 2;   // face outward in card-plane
+    stand.add(card);
+    fg.add(stand);
+
+    // Position in flat space: radiate from center
+    const px = Math.sin(feat.angle) * feat.dist;
+    const py = Math.cos(feat.angle) * feat.dist * 0.35 + feat.yOff;
+    fg.position.set(px, py, 0.005);
+
+    // Contact shadow under card
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.072, 40),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.08, depthWrite: false })
+    );
+    shadow.position.set(px, py, 0.001);
+    flat.add(shadow);
+
+    // Glowing connector line: headset center → card
+    const origin = new THREE.Vector3(0.00, 0.08, 0.005);
+    const target = new THREE.Vector3(px, py, 0.005);
+    const points = [origin, target];
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(feat.color),
+      transparent: true, opacity: 0.4,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const line = new THREE.Line(lineGeo, lineMat);
+    flat.add(line);
+    connectorLines.push({ line, mat: lineMat });
+
+    flat.add(fg);
+    featureGroups.push(fg);
+    billboards.push(fg);
+  }
+
+  // ================= CTA button — bottom =================
   const cta = makeUnlit((await load('./assets/cta-button.glb')).scene);
-  cta.scale.setScalar(1.50); // enlarge CTA button by 50%
-  const ctaGroup = new THREE.Group();       // outer: rigid pop-up
+  cta.scale.setScalar(1.50);
+  const ctaGroup = new THREE.Group();
   const ctaStand = new THREE.Group();
   ctaStand.rotation.x = Math.PI / 2;
-  ctaStand.position.z = 0.03;                 // slight lift above the card
+  ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.395, 0.000);   // using user coordinates
-  ctaGroup.rotation.y = 0.08;
-  ctaGroup.scale.setScalar(1.84);
+  ctaGroup.position.set(0.000, -0.44, 0.000);
+  ctaGroup.rotation.y = 0.00;
+  ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
   billboards.push(ctaGroup);
 
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
-  let ctaArmed = false;
-  function tryTapCTA(clientX, clientY) {
-    if (!ctaArmed) return;
-    if (editTarget !== null) return; // Disable clicks during editing/positioning
-    const canvas = renderer.domElement;
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, camera);
-    
-    // Check main contact CTA
-    const hitsCTA = raycaster.intersectObject(ctaGroup, true);
-    if (hitsCTA.length > 0) {
-      window.location.href = 'https://www.norscope.com/#/contact';
-      return;
-    }
-  }
-  const arContainer = document.getElementById('ar-container');
-  arContainer.addEventListener('pointerup', (e) => tryTapCTA(e.clientX, e.clientY));
-  arContainer.addEventListener('touchend', (e) => {
-    if (e.changedTouches && e.changedTouches.length) {
-      tryTapCTA(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    }
-  }, { passive: true });
-
-  // ================= 3. founder — stands UPRIGHT beside the card (to the left) =================
-  const mixers = [];
-  async function addFounder(avatarUrl, stageUrl, x, y, leanInward) {
-    const g = new THREE.Group();
-
-    // projection ring lies flat on the card at their feet (single ring)
-    const ring = glowRing(0.055, 0.0032, 0x0066cc, 0.5);
-    ring.position.y = 0.001;   // flat on the card
-    g.add(ring);
-    glowPulses.push({ mesh: ring, base: 0.5 });
-
-    // avatar stands upright (its GLB is already Y-up), tall and prominent
-    const gltf = await load(avatarUrl);
-    const av = gltf.scene;
-    const abox = new THREE.Box3().setFromObject(av);
-    const h = abox.max.y - abox.min.y;
-    const s = 0.42 / h;                              // TALL — 42cm, overtops the card
-    av.scale.setScalar(s);
-    av.position.set(0, -abox.min.y * s, 0.0);
-    av.rotation.y = leanInward;
-    g.add(av);
-
-    if (gltf.animations && gltf.animations.length) {
-      const mixer = new THREE.AnimationMixer(av);
-      mixer.clipAction(gltf.animations[0]).play();
-      mixers.push(mixer);
-    }
-
-    // nameplate: billboarded so the name reads from every angle.
-    // Inside g (which is rotX 90), the card normal is g's local +Y.
-    const stage = makeUnlit((await load(stageUrl)).scene);
-    const npYaw = new THREE.Group();
-    stage.position.set(0, 0.022, 0.055);
-    npYaw.add(stage);
-    g.add(npYaw);
-    founderBillboards.push({ yaw: npYaw, holder: g });
-
-    g.rotation.x = Math.PI / 2;                 // pop-up: stands out of the card
-    g.position.set(x, y, 0.005);
-    flat.add(g);
-    return g;
-  }
-
-  // LEFT, rising from mid-card and overtopping toward center (MyWebAR/Karolina style)
-  const saraGroup = await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.460, -0.040, 0.00);
-  saraGroup.scale.setScalar(1.38);
-
-  // RIGHT, rising from mid-card (replacing headset, using Sara's avatar as requested for high-quality placeholder)
-  const siddhantGroup = await addFounder('./assets/sara-avatar.glb', './assets/stage-siddhant.glb', 0.700, 0.020, 0.00);
-  siddhantGroup.scale.setScalar(1.00);
-
-  billboards.push(saraGroup);
-  billboards.push(siddhantGroup);
-
-  // ---- soft contact shadows on the card under each element ----
+  // Contact shadow under headset center and CTA
   function contactShadow(radius, x, y, opacity) {
     const m = new THREE.Mesh(
       new THREE.CircleGeometry(radius, 40),
@@ -540,18 +502,301 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(m);
     return m;
   }
-  contactShadow(0.16, 0.090, 0.500, 0.07);     // pitch (using user position x=0.09, y=0.50)
-  contactShadow(0.075, -0.460, -0.040, 0.09); // sara (using user position)
-  contactShadow(0.075, 0.700, 0.020, 0.09);   // siddhant (using user position)
-  contactShadow(0.10, 0.000, -0.395, 0.06);    // cta (using user position)
+  contactShadow(0.18, 0.00, 0.08, 0.12);   // headset center
+  contactShadow(0.10, 0.00, -0.44, 0.06);  // CTA
 
-  // ---- staged entrance: elements pop in one after another with overshoot ----
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let ctaArmed = false;
+
+  // ================= AVATARS: Sara (left) + Siddhant (right) =================
+  // Each avatar has: glow ring, 3D avatar model, name-chip canvas, profile-card canvas (hidden initially)
+
+  function makeAvatarPlaceholder(accentColor) {
+    // Silhouette circle: a simple gradient canvas standing in for a real photo
+    const s = 256;
+    const fc = document.createElement('canvas');
+    fc.width = s; fc.height = s;
+    const ctx = fc.getContext('2d');
+    // Background circle
+    const grd = ctx.createRadialGradient(s/2, s/2, 10, s/2, s/2, s/2);
+    grd.addColorStop(0, '#2a3a55');
+    grd.addColorStop(1, '#111827');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(s/2, s/2, s/2, 0, Math.PI*2);
+    ctx.fill();
+    // Silhouette body
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(s/2, s*0.37, s*0.18, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s/2, s*0.77, s*0.28, s*0.25, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    // Accent ring
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(s/2, s/2, s/2 - 4, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    return fc;
+  }
+
+  function makeNameChip(name, role, accentColor) {
+    const cw = 360, ch = 90;
+    const fc = document.createElement('canvas');
+    fc.width = cw; fc.height = ch;
+    const ctx = fc.getContext('2d');
+    ctx.fillStyle = 'rgba(8,14,28,0.90)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cw, ch, 18);
+    ctx.fill();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.roundRect(2, 2, cw-4, ch-4, 16);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#f0f8ff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, cw/2, 42);
+    ctx.fillStyle = accentColor;
+    ctx.font = '26px sans-serif';
+    ctx.fillText(role, cw/2, 76);
+    const tex = new THREE.CanvasTexture(fc);
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+    return new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.035), mat);
+  }
+
+  function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
+    const cw = 512, ch = 640;
+    const fc = document.createElement('canvas');
+    fc.width = cw; fc.height = ch;
+    const ctx = fc.getContext('2d');
+    // Glass background
+    ctx.fillStyle = 'rgba(8, 14, 28, 0.96)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cw, ch, 32);
+    ctx.fill();
+    // Accent border
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 7;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.roundRect(4, 4, cw-8, ch-8, 30);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    // Top accent bar
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.20;
+    ctx.fillRect(4, 4, cw-8, 10);
+    ctx.globalAlpha = 1.0;
+    // Avatar circle photo
+    const r = 90, cx2 = cw/2, cy2 = 140;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, r, 0, Math.PI*2);
+    ctx.clip();
+    ctx.drawImage(avatarCanvas, cx2-r, cy2-r, r*2, r*2);
+    ctx.restore();
+    // Ring around photo
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 5;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, r+3, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    // Divider
+    ctx.strokeStyle = accentColor;
+    ctx.globalAlpha = 0.25;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(40, 256); ctx.lineTo(cw-40, 256);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    // Name
+    ctx.fillStyle = '#f0f8ff';
+    ctx.font = 'bold 54px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, cw/2, 300);
+    // Role
+    ctx.fillStyle = accentColor;
+    ctx.font = '36px sans-serif';
+    ctx.fillText(role, cw/2, 350);
+    // Separator dots
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.4;
+    [-24,0,24].forEach(dx => { ctx.beginPath(); ctx.arc(cw/2+dx, 385, 4, 0, Math.PI*2); ctx.fill(); });
+    ctx.globalAlpha = 1.0;
+    // Phone
+    ctx.fillStyle = '#a8c0d6';
+    ctx.font = '34px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('📞  ' + phone, 52, 440);
+    // Email
+    ctx.fillText('✉   ' + email, 52, 492);
+    // Norscope label
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.5;
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('NORSCOPE', cw/2, ch - 30);
+    ctx.globalAlpha = 1.0;
+    const tex = new THREE.CanvasTexture(fc);
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.275), mat);
+    return plane;
+  }
+
+  async function buildAvatarGroup(avatarUrl, name, role, phone, email, accentHex, xPos) {
+    const g = new THREE.Group();
+
+    // Glow ring at base
+    const ring = glowRing(0.055, 0.0028, parseInt(accentHex.replace('#',''), 16), 0.5);
+    ring.position.y = 0.001;
+    g.add(ring);
+    glowPulses.push({ mesh: ring, base: 0.5 });
+
+    // Avatar 3D model
+    const gltf = await load(avatarUrl);
+    const av = gltf.scene;
+    const abox = new THREE.Box3().setFromObject(av);
+    const avH = abox.max.y - abox.min.y;
+    const avS = 0.28 / avH;   // 28 cm tall
+    av.scale.setScalar(avS);
+    av.position.set(0, -abox.min.y * avS, 0);
+    g.add(av);
+    if (gltf.animations && gltf.animations.length) {
+      const mixer = new THREE.AnimationMixer(av);
+      mixer.clipAction(gltf.animations[0]).play();
+      mixers.push(mixer);
+    }
+
+    // Name chip — floats just below the avatar feet
+    const chip = makeNameChip(name, role, accentHex);
+    chip.position.set(0, -0.02, 0.005);
+    g.add(chip);
+
+    // Profile card — starts invisible (scale 0)
+    const avatarCanvas = makeAvatarPlaceholder(accentHex);
+    const profileCard = makeProfileCard(name, role, phone, email, accentHex, avatarCanvas);
+    profileCard.position.set(0, 0.18, 0.008);   // above avatar center
+    profileCard.scale.setScalar(0.0001);         // hidden initially
+    g.add(profileCard);
+
+    // Contact shadow
+    contactShadow(0.065, xPos, 0.00, 0.08);
+
+    // Pop-up stand so group faces camera
+    g.rotation.x = Math.PI / 2;
+    g.position.set(xPos, 0.00, 0.005);
+    flat.add(g);
+    billboards.push(g);
+
+    return { group: g, profileCard, ring, accentHex };
+  }
+
+  const saraData = await buildAvatarGroup(
+    './assets/sara-avatar.glb',
+    'Sara Bergmann', 'Co-Founderin & CEO',
+    '+49 160 000 0001', 'sara@norscope.com',
+    '#00ffcc', -0.36
+  );
+  const siddhantData = await buildAvatarGroup(
+    './assets/sara-avatar.glb',
+    'Siddhant Jain', 'Co-Founder & CTO',
+    '+49 160 000 0002', 'siddhant@norscope.com',
+    '#7c3aff', 0.36
+  );
+  const saraGroup = saraData.group;
+  const siddhantGroup = siddhantData.group;
+
+  // ---- Tap-to-Expand system ----
+  // expandedItem: null | 'sara' | 'siddhant' | 'headset'
+  let expandedItem = null;
+  const EXPAND_DURATION = 380;   // ms
+  const expandAnims = [];        // {card, fromScale, toScale, startMs, duration}
+
+  function startExpandAnim(card, toScale, duration) {
+    // remove any existing anim for this card
+    const idx = expandAnims.findIndex(a => a.card === card);
+    if (idx !== -1) expandAnims.splice(idx, 1);
+    expandAnims.push({ card, fromScale: card.scale.x, toScale, startMs: performance.now(), duration });
+  }
+
+  function openProfile(which) {
+    const isReopening = (expandedItem === which);
+    // Close whatever is open
+    if (expandedItem === 'sara') startExpandAnim(saraData.profileCard, 0.0001, 200);
+    if (expandedItem === 'siddhant') startExpandAnim(siddhantData.profileCard, 0.0001, 200);
+    if (expandedItem === 'headset') { /* headset collapses */ startExpandAnim(heroGroup, 1.0, 200); }
+    if (isReopening) { expandedItem = null; return; }
+    // Open the new one
+    expandedItem = which;
+    if (which === 'sara') startExpandAnim(saraData.profileCard, 1.0, EXPAND_DURATION);
+    if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 1.0, EXPAND_DURATION);
+    if (which === 'headset') startExpandAnim(heroGroup, 1.35, EXPAND_DURATION);
+  }
+
+  function handleTap(clientX, clientY) {
+    if (!ctaArmed) return;
+    if (editTarget !== null) return;
+    const canvas = renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    // CTA button
+    if (raycaster.intersectObject(ctaGroup, true).length > 0) {
+      window.location.href = 'https://www.norscope.com/#/contact';
+      return;
+    }
+    // Headset hub
+    if (raycaster.intersectObject(heroGroup, true).length > 0) {
+      openProfile('headset'); return;
+    }
+    // Sara avatar
+    if (raycaster.intersectObject(saraGroup, true).length > 0) {
+      openProfile('sara'); return;
+    }
+    // Siddhant avatar
+    if (raycaster.intersectObject(siddhantGroup, true).length > 0) {
+      openProfile('siddhant'); return;
+    }
+    // Tapped empty space → close all
+    if (expandedItem !== null) openProfile(expandedItem);
+  }
+
+  const arContainer = document.getElementById('ar-container');
+  arContainer.addEventListener('pointerup', (e) => handleTap(e.clientX, e.clientY));
+  arContainer.addEventListener('touchend', (e) => {
+    if (e.changedTouches && e.changedTouches.length) {
+      handleTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }
+  }, { passive: true });
+
+  const mixers = [];
+
+  // ---- staged entrance: hub pops in first, then avatars, then feature cards ----
   const entrances = [
-    { obj: pitchGroup,    delay: 0 },
-    { obj: saraGroup,     delay: 150 },
-    { obj: siddhantGroup, delay: 300 },
-    { obj: heroGroup,     delay: 450 },
-    { obj: ctaGroup,      delay: 600 },
+    { obj: heroGroup,          delay: 0 },
+    { obj: ctaGroup,           delay: 150 },
+    { obj: saraGroup,          delay: 280 },
+    { obj: siddhantGroup,      delay: 400 },
+    ...featureGroups.map((fg, i) => ({ obj: fg, delay: 520 + i * 110 })),
   ];
   // capture each object's authored scale BEFORE zeroing for the entrance
   // animation — read after zeroing would always be 0.0001 (this fed a bug
@@ -565,11 +810,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   // so the scale slider is relative to each element's authored size.
   const baseScaleOf = (obj) => entrances.find(e => e.obj === obj).base;
   const EDITABLE = [
-    { name: 'Pitch-Karte',   obj: pitchGroup,    baseScale: baseScaleOf(pitchGroup) },
-    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
-    { name: 'Siddhant (Av)', obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
-    { name: 'Headset',       obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
+    { name: 'Headset (Hub)', obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
     { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
+    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
+    { name: 'Siddhant (Av)',  obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
+    ...featureGroups.map((fg, i) => ({ name: 'Feature ' + (i + 1), obj: fg, baseScale: baseScaleOf(fg) })),
   ];
   setupEditor(EDITABLE);
 
@@ -643,42 +888,17 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         debugLog('Starte GLB-Export...');
         
         // 1. Save original transforms
-        const saved = [
-          { obj: pitchGroup, pos: pitchGroup.position.clone(), rot: pitchGroup.rotation.clone(), scl: pitchGroup.scale.clone() },
-          { obj: ctaGroup, pos: ctaGroup.position.clone(), rot: ctaGroup.rotation.clone(), scl: ctaGroup.scale.clone() },
-          { obj: saraGroup, pos: saraGroup.position.clone(), rot: saraGroup.rotation.clone(), scl: saraGroup.scale.clone() },
-          { obj: siddhantGroup, pos: siddhantGroup.position.clone(), rot: siddhantGroup.rotation.clone(), scl: siddhantGroup.scale.clone() }
-        ];
+        const exportObjs = [heroGroup, ctaGroup, ...featureGroups];
+        const saved = exportObjs.map(o => ({
+          obj: o, pos: o.position.clone(), rot: o.rotation.clone(), scl: o.scale.clone()
+        }));
         
-        // 2. Set default static transforms matching user coordinates
-        pitchGroup.position.set(0.090, 0.500, 0.270);
-        pitchGroup.rotation.set(0, 0.22, 0);
-        pitchGroup.scale.setScalar(1.72);
-        
-        ctaGroup.position.set(0.000, -0.395, 0.000);
-        ctaGroup.rotation.set(0, 0.08, 0);
-        ctaGroup.scale.setScalar(1.84);
-        
-        saraGroup.position.set(-0.460, -0.040, 0.005);
-        saraGroup.rotation.set(Math.PI / 2, 0, 0);
-        saraGroup.scale.setScalar(1.38);
-        
-        siddhantGroup.position.set(0.700, 0.020, 0.005);
-        siddhantGroup.rotation.set(Math.PI / 2, 0, 0);
-        siddhantGroup.scale.setScalar(1.00);
-        
-        // Update matrix worlds so that exporter sees the new positions
-        pitchGroup.updateMatrixWorld(true);
-        ctaGroup.updateMatrixWorld(true);
-        saraGroup.updateMatrixWorld(true);
-        siddhantGroup.updateMatrixWorld(true);
+        // 2. Update matrix worlds so exporter sees current positions
+        exportObjs.forEach(o => o.updateMatrixWorld(true));
         
         // 3. Create temp scene for export
         const exportScene = new THREE.Scene();
-        exportScene.add(pitchGroup);
-        exportScene.add(ctaGroup);
-        exportScene.add(saraGroup);
-        exportScene.add(siddhantGroup);
+        exportObjs.forEach(o => exportScene.add(o));
         
         // 4. Run GLTFExporter
         const exporter = new GLTFExporter();
@@ -694,6 +914,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
               s.obj.updateMatrixWorld(true);
             });
             exporting = false;
+
             
             debugLog('Export erfolgreich: ' + glbBuffer.byteLength + ' Bytes');
             
@@ -723,7 +944,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
               s.obj.updateMatrixWorld(true);
             });
             exporting = false;
-            debugLog('Export-Fehler: ' + parseErr.message);
+            debugLog('Export-Fehler: ' + (parseErr && parseErr.message ? parseErr.message : parseErr));
           },
           { binary: true }
         );
@@ -767,38 +988,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     scanhint.style.display = 'block';
     const clock = new THREE.Clock();
     
-    // AR Maintenance Simulation state machine variables
-    let simState = 'idle';
-    let simStartTime = 0;
-    function startMaintenanceSimulation() {
-      if (simState === 'idle') {
-        simState = 'scanning';
-        simStartTime = clock.getElapsedTime();
-        simStatusText = '> DIAGNOSTICS: RUNNING SCAN...';
-        drawPitchText();
-        
-        btnCtx.fillStyle = 'rgba(12, 16, 22, 0.95)';
-        btnCtx.fillRect(0, 0, 256, 64);
-        btnCtx.strokeRect(2, 2, 252, 60);
-        btnCtx.fillStyle = '#ff8a3d';
-        btnCtx.fillText('SCANNING...', 128, 32);
-        btnTex.needsUpdate = true;
-      } else if (simState === 'completed') {
-        simState = 'idle';
-        heroRing1.material.color.setHex(0x0066cc);
-        heroRing2.material.color.setHex(0x0066cc);
-        
-        btnCtx.fillStyle = 'rgba(12, 16, 22, 0.95)';
-        btnCtx.fillRect(0, 0, 256, 64);
-        btnCtx.strokeRect(2, 2, 252, 60);
-        btnCtx.fillStyle = '#00ffcc';
-        btnCtx.fillText('SIMULATION', 128, 32);
-        btnTex.needsUpdate = true;
-
-        simStatusText = '> SYSTEM ONLINE. READY TO TEST.';
-        drawPitchText();
-      }
-    }
 
 
     renderer.setAnimationLoop(() => {
@@ -876,50 +1065,34 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         const parentWorldQuat = new THREE.Quaternion();
         const offsetQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
         
-        // 1. Billboards (pitchGroup, ctaGroup, saraGroup, siddhantGroup)
-        // These are kept upright relative to world UP and yawed to face the camera.
+        // Cylindrical world-up billboarding for all registered elements
+        // Feature cards and CTA use the Math.PI/2 offset (their child stands rotated).
         billboards.forEach(b => {
           if (!isEditing(b)) {
-            // Get current billboard's world position
             b.getWorldPosition(objWorldPos);
-            
-            // Calculate vector from billboard to smooth camera position
             zAxis.subVectors(camSmoothWorld, objWorldPos);
-            
-            // Lock rotation to vertical axis by setting Y delta to 0 (cylindrical billboarding)
             zAxis.y = 0;
             zAxis.normalize();
-            
-            if (zAxis.lengthSq() === 0) {
-              zAxis.set(0, 0, 1);
-            }
-            
-            // Calculate horizontal X axis (worldUp x zAxis)
+            if (zAxis.lengthSq() === 0) zAxis.set(0, 0, 1);
             xAxis.crossVectors(worldUp, zAxis).normalize();
-            
-            // Create orthonormal basis rotation matrix
             matrix.makeBasis(xAxis, worldUp, zAxis);
             targetQuat.setFromRotationMatrix(matrix);
-            
-            // Apply X rotation offset only to groups whose child has the Math.PI/2 rotation
-            if (b === pitchGroup || b === ctaGroup) {
-              targetQuat.multiply(offsetQuat);
-            }
-            
-            // Convert to parent's local space
+            // Feature cards and CTA have a Math.PI/2 child stand — apply offset
+            const needsOffset = (b === ctaGroup) || featureGroups.includes(b);
+            if (needsOffset) targetQuat.multiply(offsetQuat);
             b.parent.getWorldQuaternion(parentWorldQuat);
             parentWorldQuat.invert();
             b.quaternion.copy(parentWorldQuat).multiply(targetQuat);
           }
         });
 
-        // 2. Founder nameplates inside addFounder groups
-        founderBillboards.forEach(fb => {
-          fb.holder.worldToLocal(camLocal.copy(camSmoothWorld));
-          const dx = camLocal.x - fb.yaw.position.x;
-          const dz = camLocal.z - fb.yaw.position.z;
-          fb.yaw.rotation.y = Math.atan2(dx, dz);
+        // Pulse connector line opacity
+        connectorLines.forEach(({ mat }, i) => {
+          mat.opacity = 0.28 + 0.20 * Math.sin(t * 1.8 + i * 1.1);
         });
+
+        // Avatar billboarding: same cylindrical system, with Math.PI/2 child offset
+        // (saraGroup and siddhantGroup are already in the billboards array)
       } else {
         anchorSmoothInit = false;
         camSmoothInit = false;
@@ -927,17 +1100,41 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
 
 
-      // headset: slow spin (no bobbing to prevent tracking noise amplification)
-      headsetSpin.rotation.y = t * 0.5;
-      if (!isEditing(heroGroup))  heroGroup.position.z  = editBaseZ(heroGroup, 0.000);
- 
-      // pitch card (hero) (no bobbing)
-      if (!isEditing(pitchGroup)) pitchGroup.position.z = editBaseZ(pitchGroup, 0.270);
- 
-      // CTA: stationary (no scale-pulsing)
-      if (!isEditing(ctaGroup) && revealT === null) {
-        ctaGroup.scale.setScalar(editBaseScale(ctaGroup, 1.84));
+      // headset: slow continuous spin
+      headsetSpin.rotation.y = t * 0.45;
+
+      // gentle hover bob for the headset (only when not expanded)
+      if (!isEditing(heroGroup) && expandedItem !== 'headset') {
+        heroGroup.position.z = editBaseZ(heroGroup, 0.18) + Math.sin(t * 1.1) * 0.008;
       }
+
+      // feature cards: gentle individual float
+      featureGroups.forEach((fg, i) => {
+        if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
+      });
+
+      // Avatar: gentle hover bob
+      if (!isEditing(saraGroup))
+        saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
+      if (!isEditing(siddhantGroup))
+        siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 1.8) * 0.006;
+
+      // CTA: stationary
+      if (!isEditing(ctaGroup) && revealT === null) {
+        ctaGroup.scale.setScalar(editBaseScale(ctaGroup, 1.80));
+      }
+
+      // Expand/Collapse animations (easeOutBack for open, easeIn for close)
+      function easeOutBackLocal(p) { const c=1.5; return 1+(c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2); }
+      function easeIn(p) { return p*p; }
+      const now2 = performance.now();
+      expandAnims.forEach((anim, i) => {
+        const p = Math.min(1, (now2 - anim.startMs) / anim.duration);
+        const t2 = anim.toScale > anim.fromScale ? easeOutBackLocal(p) : easeIn(p);
+        const s = Math.max(0.0001, anim.fromScale + (anim.toScale - anim.fromScale) * t2);
+        anim.card.scale.setScalar(s);
+        if (p >= 1) expandAnims.splice(i, 1);
+      });
 
       // glow pulses on every ring
       glowPulses.forEach(({ mesh, base }, i) => {
