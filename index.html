@@ -172,6 +172,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   function isEditing(obj) { return editTarget === obj; }
   function editBaseZ(obj, fb) { const b = editBase.get(obj); return b ? b.z : fb; }
   function editBaseScale(obj, fb) { const b = editBase.get(obj); return b ? b.scale : fb; }
+
+  // billboard bookkeeping: these yaw toward the camera around the card normal
+  const billboards = [];          // groups in `flat` space (card XY, normal +Z)
+  const founderBillboards = [];   // nameplates inside founder groups
+  const camWorld = new THREE.Vector3();
+  const camLocal = new THREE.Vector3();
   const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
@@ -256,29 +262,29 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const pitch = (await load('./assets/norscope-pitch.glb')).scene;
   const pbox = new THREE.Box3().setFromObject(pitch);
   const pc = pbox.getCenter(new THREE.Vector3());
-  const pitchGroup = new THREE.Group();
+  const pitchGroup = new THREE.Group();     // outer: yaws toward camera (billboard)
   pitch.position.set(-pc.x, -pbox.min.y + 0.01, -pbox.min.z);  // bottom edge on the card
   pitch.scale.setScalar(1.25);                // bigger — this is the hero
-  pitchGroup.add(pitch);
-  pitchGroup.rotation.x = Math.PI / 2;         // pop-up: stands out of the card
-  pitchGroup.position.set(0.0, 0.14, 0.005);   // back half of the card
+  const pitchStand = new THREE.Group();       // inner: pops the content upright
+  pitchStand.rotation.x = Math.PI / 2;
+  pitchStand.add(pitch);
+  pitchGroup.add(pitchStand);
+  pitchGroup.position.set(0.0, 0.10, 0.005);
   flat.add(pitchGroup);
+  billboards.push(pitchGroup);
 
-  // ---- combined 3D logo + NORSCOPE lockup, crowning the top ----
-  const lockup = (await load('./assets/logo-lockup.glb')).scene;
-  const logoGroup = new THREE.Group();
-  logoGroup.add(lockup);
-  logoGroup.rotation.x = Math.PI / 2;
-  logoGroup.position.set(0.0, 0.28, 0.005);    // behind the pitch, at the card's top edge
-  flat.add(logoGroup);
 
   // ================= CTA button — below the pitch card =================
   const cta = (await load('./assets/cta-button.glb')).scene;
-  const ctaGroup = new THREE.Group();
-  ctaGroup.add(cta);
-  ctaGroup.rotation.x = Math.PI / 2;
-  ctaGroup.position.set(0.0, -0.24, 0.005);    // front edge, closest to the viewer
+  const ctaGroup = new THREE.Group();       // outer: billboard yaw
+  const ctaStand = new THREE.Group();
+  ctaStand.rotation.x = Math.PI / 2;
+  ctaStand.position.z = 0.03;                 // slight lift above the card
+  ctaStand.add(cta);
+  ctaGroup.add(ctaStand);
+  ctaGroup.position.set(0.0, -0.24, 0.005);   // front edge, closest to the viewer
   flat.add(ctaGroup);
+  billboards.push(ctaGroup);
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -332,12 +338,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       mixers.push(mixer);
     }
 
-    // nameplate upright, just in front of and below the feet
+    // nameplate: billboarded so the name reads from every angle.
+    // Inside g (which is rotX 90), the card normal is g's local +Y.
     const stage = (await load(stageUrl)).scene;
-    const stageGroup = new THREE.Group();
-    stageGroup.add(stage);
-    stageGroup.position.set(0, 0.022, 0.03);
-    g.add(stageGroup);
+    const npYaw = new THREE.Group();
+    stage.position.set(0, 0.022, 0.055);
+    npYaw.add(stage);
+    g.add(npYaw);
+    founderBillboards.push({ yaw: npYaw, holder: g });
 
     g.rotation.x = Math.PI / 2;                 // pop-up: stands out of the card
     g.position.set(x, y, 0.005);
@@ -347,11 +355,51 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   // LEFT, rising from mid-card and overtopping toward center (MyWebAR/Karolina style)
   const saraGroup = await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.34, -0.04, 0.35);
 
+  // ---- soft contact shadows on the card under each element ----
+  function contactShadow(radius, x, y, opacity) {
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 40),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
+    );
+    m.position.set(x, y, 0.002);
+    flat.add(m);
+    return m;
+  }
+  contactShadow(0.16, 0.0, 0.10, 0.10);     // pitch
+  contactShadow(0.075, -0.34, -0.04, 0.12); // sara
+  contactShadow(0.075, 0.34, 0.02, 0.12);   // headset
+  contactShadow(0.10, 0.0, -0.24, 0.08);    // cta
+
+  // ---- ambient particles: slow-drifting blue motes above the card ----
+  const P = 70;
+  const ppos = new Float32Array(P * 3);
+  for (let i = 0; i < P; i++) {
+    ppos[i*3]   = (Math.random() - 0.5) * 1.0;
+    ppos[i*3+1] = (Math.random() - 0.5) * 0.66;
+    ppos[i*3+2] = 0.02 + Math.random() * 0.28;
+  }
+  const pgeo = new THREE.BufferGeometry();
+  pgeo.setAttribute('position', new THREE.BufferAttribute(ppos, 3));
+  const particles = new THREE.Points(pgeo, new THREE.PointsMaterial({
+    color: 0x0066cc, size: 0.006, transparent: true, opacity: 0.45,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+  }));
+  flat.add(particles);
+
+  // ---- staged entrance: elements pop in one after another with overshoot ----
+  const entrances = [
+    { obj: pitchGroup, delay: 0 },
+    { obj: saraGroup,  delay: 180 },
+    { obj: heroGroup,  delay: 340 },
+    { obj: ctaGroup,   delay: 500 },
+  ];
+  entrances.forEach(e => { e.base = e.obj.scale.x; e.obj.scale.setScalar(0.0001); });
+  function easeOutBack(p) { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
+
   // ================= EDITOR MODE — live positioning, like Adobe Aero =================
   // Registered elements the editor can move/rotate/scale. Base scale captured
   // so the scale slider is relative to each element's authored size.
   const EDITABLE = [
-    { name: 'Logo + Name',   obj: logoGroup,   baseScale: logoGroup.scale.x },
     { name: 'Pitch-Karte',   obj: pitchGroup,  baseScale: pitchGroup.scale.x },
     { name: 'Sara (Avatar)', obj: saraGroup,   baseScale: saraGroup.scale.x },
     { name: 'Headset',       obj: heroGroup,   baseScale: heroGroup.scale.x },
@@ -431,13 +479,32 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
 
-      // scan-in reveal: quick scale + ease when the target is (re)found
+      // scan-in reveal: root scales in fast, then elements pop in staged
       if (revealT !== null) {
-        const p = Math.min(1, (performance.now() - revealT) / 550);
-        const ease = 1 - Math.pow(1 - p, 3);
-        root.scale.setScalar(0.001 + ease * (SCENE_SCALE - 0.001));
-        if (p >= 1) revealT = null;
+        const el = performance.now() - revealT;
+        const p = Math.min(1, el / 350);
+        root.scale.setScalar(0.001 + (1 - Math.pow(1 - p, 3)) * (SCENE_SCALE - 0.001));
+        let allDone = p >= 1;
+        entrances.forEach(e => {
+          const ep = Math.min(1, Math.max(0, (el - 250 - e.delay) / 420));
+          e.obj.scale.setScalar(Math.max(0.0001, e.base * easeOutBack(ep)));
+          if (ep < 1) allDone = false;
+        });
+        if (allDone) revealT = null;
       }
+
+      // billboards: yaw toward the camera around the card normal
+      camera.getWorldPosition(camWorld);
+      flat.worldToLocal(camLocal.copy(camWorld));
+      billboards.forEach(b => {
+        const dx = camLocal.x - b.position.x, dy = camLocal.y - b.position.y;
+        b.rotation.z = Math.atan2(dx, -dy);
+      });
+      founderBillboards.forEach(({ yaw, holder }) => {
+        // inside the rotX(+90) founder frame the card normal is local +Y
+        const dx = camLocal.x - holder.position.x, dy = camLocal.y - holder.position.y;
+        yaw.rotation.y = Math.atan2(dx, -dy);
+      });
 
       // headset: slow spin, floating accent (idle z-bob unless being edited)
       headsetSpin.rotation.y = t * 0.5;
@@ -445,10 +512,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // pitch card (hero) + logo: gentle synchronized forward bob
       if (!isEditing(pitchGroup)) pitchGroup.position.z = editBaseZ(pitchGroup, 0.005) + Math.sin(t * 1.3) * 0.004;
-      if (!isEditing(logoGroup))  logoGroup.position.z  = editBaseZ(logoGroup, 0.005)  + Math.sin(t * 1.5) * 0.004;
 
-      // CTA: gentle attention pulse (skip while editing so scale slider works)
-      if (!isEditing(ctaGroup)) {
+      // CTA: gentle attention pulse (skip during entrance + while editing)
+      if (!isEditing(ctaGroup) && revealT === null) {
         const ctaPulse = editBaseScale(ctaGroup, 1) * (1 + Math.sin(t * 2.6) * 0.03);
         ctaGroup.scale.setScalar(ctaPulse);
       }
