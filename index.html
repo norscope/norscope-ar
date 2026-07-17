@@ -238,16 +238,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   headsetSpin.add(productGroup);
   const headsetTilt = new THREE.Group();
   headsetTilt.add(headsetSpin);
-  headsetTilt.rotation.x = -0.35;
+  headsetTilt.rotation.x = -0.25;
+  headsetTilt.position.y = 0.075;               // hover height above the card
   heroGroup.add(headsetTilt);
 
   const heroRing1 = glowRing(0.062, 0.0032, 0x0066cc, 0.5);
   const heroRing2 = glowRing(0.078, 0.0016, 0x0066cc, 0.28);
-  heroRing1.rotation.x = Math.PI / 2; heroRing2.rotation.x = Math.PI / 2;
+  heroRing1.position.y = 0.001; heroRing2.position.y = 0.001;   // on the card surface
   heroGroup.add(heroRing1, heroRing2);
   glowPulses.push({ mesh: heroRing1, base: 0.5 }, { mesh: heroRing2, base: 0.28 });
 
-  heroGroup.position.set(0.38, 0.05, 0.09);   // right of the pitch card, mid-height
+  heroGroup.rotation.x = Math.PI / 2;          // pop-up: rises out of the card
+  heroGroup.position.set(0.34, 0.02, 0.005);   // right side of the card
   flat.add(heroGroup);
 
   // ================= HERO: the pitch card — large, central, floating above the card =================
@@ -255,24 +257,27 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const pbox = new THREE.Box3().setFromObject(pitch);
   const pc = pbox.getCenter(new THREE.Vector3());
   const pitchGroup = new THREE.Group();
-  pitch.position.set(-pc.x, -pc.y, -pbox.min.z);
+  pitch.position.set(-pc.x, -pbox.min.y + 0.01, -pbox.min.z);  // bottom edge on the card
   pitch.scale.setScalar(1.25);                // bigger — this is the hero
   pitchGroup.add(pitch);
-  pitchGroup.position.set(0.0, 0.22, 0.11);   // hero, centered upper-middle of the tall card
+  pitchGroup.rotation.x = Math.PI / 2;         // pop-up: stands out of the card
+  pitchGroup.position.set(0.0, 0.14, 0.005);   // back half of the card
   flat.add(pitchGroup);
 
   // ---- combined 3D logo + NORSCOPE lockup, crowning the top ----
   const lockup = (await load('./assets/logo-lockup.glb')).scene;
   const logoGroup = new THREE.Group();
   logoGroup.add(lockup);
-  logoGroup.position.set(0.0, 0.62, 0.14);    // above the printed icon, furthest forward
+  logoGroup.rotation.x = Math.PI / 2;
+  logoGroup.position.set(0.0, 0.28, 0.005);    // behind the pitch, at the card's top edge
   flat.add(logoGroup);
 
   // ================= CTA button — below the pitch card =================
   const cta = (await load('./assets/cta-button.glb')).scene;
   const ctaGroup = new THREE.Group();
   ctaGroup.add(cta);
-  ctaGroup.position.set(0.0, -0.24, 0.10);     // below the hero, over the upper QR
+  ctaGroup.rotation.x = Math.PI / 2;
+  ctaGroup.position.set(0.0, -0.24, 0.005);    // front edge, closest to the viewer
   flat.add(ctaGroup);
 
   const raycaster = new THREE.Raycaster();
@@ -306,8 +311,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     // projection ring lies flat on the card at her feet
     const ring1 = glowRing(0.055, 0.0032, 0x0066cc, 0.5);
     const ring2 = glowRing(0.070, 0.0016, 0x0066cc, 0.28);
-    ring1.rotation.x = Math.PI / 2; ring2.rotation.x = Math.PI / 2;
-    ring1.position.z = 0.001; ring2.position.z = 0.001;
+    ring1.position.y = 0.001; ring2.position.y = 0.001;   // flat on the card
     g.add(ring1, ring2);
     glowPulses.push({ mesh: ring1, base: 0.5 }, { mesh: ring2, base: 0.28 });
 
@@ -335,12 +339,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     stageGroup.position.set(0, 0.022, 0.03);
     g.add(stageGroup);
 
-    g.position.set(x, y, 0.03);
+    g.rotation.x = Math.PI / 2;                 // pop-up: stands out of the card
+    g.position.set(x, y, 0.005);
     flat.add(g);
     return g;
   }
   // LEFT, rising from mid-card and overtopping toward center (MyWebAR/Karolina style)
-  const saraGroup = await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.38, -0.28, 0.5);
+  const saraGroup = await addFounder('./assets/sara-avatar.glb', './assets/stage-sara.glb', -0.34, -0.04, 0.35);
 
   // ================= EDITOR MODE — live positioning, like Adobe Aero =================
   // Registered elements the editor can move/rotate/scale. Base scale captured
@@ -436,11 +441,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // headset: slow spin, floating accent (idle z-bob unless being edited)
       headsetSpin.rotation.y = t * 0.5;
-      if (!isEditing(heroGroup))  heroGroup.position.z  = editBaseZ(heroGroup, 0.09)  + Math.sin(t * 1.1) * 0.006;
+      if (!isEditing(heroGroup))  heroGroup.position.z  = editBaseZ(heroGroup, 0.005) + Math.sin(t * 1.1) * 0.004;
 
       // pitch card (hero) + logo: gentle synchronized forward bob
-      if (!isEditing(pitchGroup)) pitchGroup.position.z = editBaseZ(pitchGroup, 0.11) + Math.sin(t * 1.3) * 0.006;
-      if (!isEditing(logoGroup))  logoGroup.position.z  = editBaseZ(logoGroup, 0.14)  + Math.sin(t * 1.5) * 0.006;
+      if (!isEditing(pitchGroup)) pitchGroup.position.z = editBaseZ(pitchGroup, 0.005) + Math.sin(t * 1.3) * 0.004;
+      if (!isEditing(logoGroup))  logoGroup.position.z  = editBaseZ(logoGroup, 0.005)  + Math.sin(t * 1.5) * 0.004;
 
       // CTA: gentle attention pulse (skip while editing so scale slider works)
       if (!isEditing(ctaGroup)) {
