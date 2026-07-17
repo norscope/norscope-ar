@@ -513,16 +513,20 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   // ================= reveal + idle animation =================
   let revealT = null;
   let foundCount = 0;
+  let targetVisible = false;
   anchor.onTargetFound = () => {
     foundCount++;
     debugLog('✓ Ziel erkannt (#' + foundCount + ') ' + new Date().toLocaleTimeString());
     scanhint.style.display = 'none';
     revealT = performance.now();
     ctaArmed = true;
+    targetVisible = true;
+    anchorSmoothInit = false;   // snap to the fresh pose next frame instead of gliding in
   };
   anchor.onTargetLost = () => {
     debugLog('Ziel verloren ' + new Date().toLocaleTimeString());
     scanhint.style.display = 'block'; ctaArmed = false;
+    targetVisible = false;
   };
 
   try {
@@ -544,8 +548,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // .position/.quaternion — reading those directly always returns the
       // identity/default, which is what caused the "chaos" after the last
       // change. The correct read is the composed matrixWorld, decomposed here.
+      //
+      // Visibility is driven by OUR OWN onTargetFound/onTargetLost callbacks
+      // (targetVisible), not anchor.group.visible — a test confirmed the
+      // callbacks fire correctly (the debug panel logs from inside them) but
+      // anchor.group.visible did not behave as assumed, which silently kept
+      // root invisible even after the target was found and correctly tracked.
       anchor.group.updateMatrixWorld(true);
-      root.visible = anchor.group.visible;
+      root.visible = targetVisible;
       if (root.visible) {
         anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
         const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
