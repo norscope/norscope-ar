@@ -112,6 +112,15 @@ const startEl = document.getElementById('start');
 const errEl = document.getElementById('err');
 const scanhint = document.getElementById('scanhint');
 
+// Any uncaught async failure (e.g. a missing .glb on the server) becomes a
+// visible message instead of a silent dead button.
+window.addEventListener('unhandledrejection', (e) => {
+  startEl.style.display = 'flex';
+  errEl.textContent = 'Fehler beim Laden: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) +
+    ' — prüfe, ob alle Dateien im assets-Ordner auf GitHub liegen.';
+  errEl.style.display = 'block';
+});
+
 async function checkTargets() {
   try {
     const r = await fetch('./assets/targets.mind', { method: 'HEAD' });
