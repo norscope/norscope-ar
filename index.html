@@ -499,6 +499,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     scanhint.style.display = 'block';
     const clock = new THREE.Clock();
     renderer.setAnimationLoop(() => {
+     try {
       const dt = clock.getDelta();
       const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
@@ -591,6 +592,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       });
 
       renderer.render(scene, camera);
+     } catch (frameErr) {
+       console.error('Render loop error:', frameErr);
+       errEl.textContent = 'Laufzeitfehler in der AR-Szene: ' + (frameErr && frameErr.message ? frameErr.message : frameErr) +
+         ' — bitte Screenshot davon schicken.';
+       errEl.style.display = 'block';
+       startEl.style.display = 'flex';
+       renderer.setAnimationLoop(null);
+     }
     });
   } catch (e) {
     errEl.textContent = 'Kamera konnte nicht gestartet werden: ' + (e && e.message ? e.message : e) +
