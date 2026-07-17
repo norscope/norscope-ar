@@ -183,7 +183,19 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
-  anchor.group.add(root);
+  root.visible = false;
+  // root is a SIBLING of anchor.group (both children of mindarThree.scene),
+  // not a rigid child of it. anchor.group carries MindAR's raw per-frame
+  // tracked pose, which has inherent jitter even with good filter settings
+  // (this is a known MindAR limitation, not something filterMinCF/filterBeta
+  // alone can fully solve). Every frame, root's transform smoothly chases
+  // anchor.group's transform instead of copying it rigidly — this is the
+  // "custom smoothing on top of the raw tracked pose" the MindAR maintainers
+  // themselves recommend, and it damps jitter for EVERY object in the scene
+  // at once, not just the billboarded ones (which is all the earlier fixes
+  // in this file addressed).
+  scene.add(root);
+  let anchorSmoothInit = false;
 
   // The MindAR image-target plane already faces the viewer (the card's printed
   // face). So content authored upright in XY stands upright ON the card — no
@@ -475,8 +487,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     scanhint.style.display = 'none';
     revealT = performance.now();
     ctaArmed = true;
+    anchorSmoothInit = false;   // snap to the card's current pose next frame, don't sweep in from wherever root last was
+    root.visible = true;
   };
-  anchor.onTargetLost = () => { scanhint.style.display = 'block'; ctaArmed = false; };
+  anchor.onTargetLost = () => { scanhint.style.display = 'block'; ctaArmed = false; root.visible = false; };
 
   try {
     await mindarThree.start();
@@ -487,6 +501,24 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       const dt = clock.getDelta();
       const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
+
+      // Smoothly chase MindAR's raw tracked pose (see the note by `root`'s
+      // declaration). dt-scaled so it behaves consistently regardless of the
+      // device's actual frame rate, instead of a fixed per-frame lerp factor
+      // (which would filter more aggressively at low fps and barely at all
+      // at high fps).
+      if (root.visible) {
+        const lambda = 14;   // higher = snappier/less filtering, lower = smoother/more lag
+        const k = 1 - Math.exp(-lambda * dt);
+        if (!anchorSmoothInit) {
+          root.position.copy(anchor.group.position);
+          root.quaternion.copy(anchor.group.quaternion);
+          anchorSmoothInit = true;
+        } else {
+          root.position.lerp(anchor.group.position, k);
+          root.quaternion.slerp(anchor.group.quaternion, k);
+        }
+      }
 
       // scan-in reveal: root scales in fast, then elements pop in staged
       if (revealT !== null) {
@@ -510,10 +542,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // singularity near "camera roughly overhead" gets amplified into
       // visible micro-rotation otherwise).
       camera.getWorldPosition(camWorld);
+      const camK = 1 - Math.exp(-8 * dt);
       if (!camSmoothInit) { camSmoothWorld.copy(camWorld); camSmoothInit = true; }
-      camSmoothWorld.x += (camWorld.x - camSmoothWorld.x) * 0.06;
-      camSmoothWorld.y += (camWorld.y - camSmoothWorld.y) * 0.06;
-      camSmoothWorld.z += (camWorld.z - camSmoothWorld.z) * 0.06;
+      camSmoothWorld.lerp(camWorld, camK);
 
       // pitch card / CTA billboard: yaw toward the camera around the card
       // normal, recomputed directly every frame (standard billboard technique
