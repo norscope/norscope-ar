@@ -38,7 +38,9 @@
   /* ---- scanning hint ---- */
   #scanhint{position:fixed;left:0;right:0;bottom:40px;z-index:15;display:none;
     text-align:center;pointer-events:none;}
-  #debug{display:none;}
+  #debug{position:fixed;left:10px;top:10px;z-index:99;background:rgba(8,14,28,0.90);
+    color:#00ffcc;font-family:monospace;font-size:10px;padding:10px;border:1px solid #00aaff;
+    border-radius:8px;pointer-events:none;max-width:280px;display:block;}
   /* ---- editor mode ---- */
   #ed-toggle{position:fixed;top:14px;right:14px;z-index:30;width:44px;height:44px;
     border-radius:50%;border:none;background:#0066cc;color:#fff;font-size:20px;
@@ -748,43 +750,64 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 1.0, EXPAND_DURATION);
   }
 
-  function handleTap(clientX, clientY) {
+  function handleTap(clientX, clientY, targetEl) {
+    // Prevent raycasting if clicking on start overlay or editor panel
+    if (targetEl && (targetEl.closest('#editor') || targetEl.closest('#start'))) {
+      debugLog('Ignoriere Tap im Editor/Start-Overlay');
+      return;
+    }
+
+    debugLog(`Tap bei: ${clientX}, ${clientY} (armed: ${ctaArmed})`);
     if (!ctaArmed) return;
     if (editTarget !== null) return;
-    const canvas = renderer.domElement;
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Use window dimensions for robust raycast NDC calculation
+    pointer.x = (clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
 
+    const hitsCTA = raycaster.intersectObject(ctaGroup, true);
+    const hitsHero = raycaster.intersectObject(heroGroup, true);
+    const hitsSara = raycaster.intersectObject(saraGroup, true);
+    const hitsSiddhant = raycaster.intersectObject(siddhantGroup, true);
+
+    debugLog(`Treffer: CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Sara=${hitsSara.length}, Siddhant=${hitsSiddhant.length}`);
+
     // CTA button
-    if (raycaster.intersectObject(ctaGroup, true).length > 0) {
+    if (hitsCTA.length > 0) {
+      debugLog('Tapped CTA Button -> Weiterleitung');
       window.location.href = 'https://www.norscope.com/#/contact';
       return;
     }
     // Headset hub
-    if (raycaster.intersectObject(heroGroup, true).length > 0) {
-      openProfile('headset'); return;
+    if (hitsHero.length > 0) {
+      debugLog('Tapped Headset -> Focus Headset');
+      openProfile('headset');
+      return;
     }
     // Sara avatar
-    if (raycaster.intersectObject(saraGroup, true).length > 0) {
-      openProfile('sara'); return;
+    if (hitsSara.length > 0) {
+      debugLog('Tapped Sara -> Focus Sara');
+      openProfile('sara');
+      return;
     }
     // Siddhant avatar
-    if (raycaster.intersectObject(siddhantGroup, true).length > 0) {
-      openProfile('siddhant'); return;
+    if (hitsSiddhant.length > 0) {
+      debugLog('Tapped Siddhant -> Focus Siddhant');
+      openProfile('siddhant');
+      return;
     }
     // Tapped empty space → close all
-    if (expandedItem !== null) openProfile(expandedItem);
+    if (expandedItem !== null) {
+      debugLog('Tapped ins Leere -> Schließe Focus');
+      openProfile(expandedItem);
+    }
   }
 
-  const arContainer = document.getElementById('ar-container');
-  arContainer.addEventListener('pointerup', (e) => handleTap(e.clientX, e.clientY));
-  arContainer.addEventListener('touchend', (e) => {
-    if (e.changedTouches && e.changedTouches.length) {
-      handleTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    }
-  }, { passive: true });
+  // Register modern pointerdown unified listener on window for 100% click/touch capture reliability
+  window.addEventListener('pointerdown', (e) => {
+    handleTap(e.clientX, e.clientY, e.target);
+  });
 
 
   // ---- staged entrance: hub pops in first, then avatars, then feature cards ----
