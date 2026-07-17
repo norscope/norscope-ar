@@ -1,0 +1,1443 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Norscope AR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f7f8fa; --ink:#12181f; --muted:#5a6470;
+    --line:#dee2e7; --accent:#0066cc; --accent-2:#0066cc;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;overflow:hidden;}
+
+  #ar-container{position:fixed;inset:0;}
+
+  /* ---- start overlay ---- */
+  #start{position:fixed;inset:0;background:var(--bg);z-index:20;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:32px;text-align:center;}
+  #start h1{font-family:'Space Grotesk',sans-serif;font-size:30px;margin-bottom:6px;}
+  #start .tag{color:var(--accent);font-size:12px;letter-spacing:.1em;
+    text-transform:uppercase;margin-bottom:34px;}
+  #start .hint{color:var(--muted);font-size:13px;line-height:1.7;max-width:300px;
+    margin-bottom:38px;}
+  #start .hint b{color:var(--ink);font-weight:500;}
+  #startBtn{padding:16px 44px;background:transparent;border:1px solid var(--accent);
+    color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:13px;
+    letter-spacing:.12em;text-transform:uppercase;cursor:pointer;}
+  #startBtn:active{background:var(--accent);color:var(--bg);}
+  #fallback{margin-top:26px;font-size:11px;color:var(--muted);}
+  #fallback a{color:var(--accent-2);}
+  #err{margin-top:20px;color:#c62828;font-size:12px;max-width:320px;line-height:1.6;display:none;}
+
+  /* ---- scanning hint ---- */
+  #scanhint{position:fixed;left:0;right:0;bottom:40px;z-index:15;display:none;
+    text-align:center;pointer-events:none;}
+  #debug{position:fixed;left:10px;top:10px;z-index:99;background:rgba(8,14,28,0.90);
+    color:#00ffcc;font-family:monospace;font-size:10px;padding:10px;border:1px solid #00aaff;
+    border-radius:8px;pointer-events:none;max-width:280px;display:none;}
+  /* ---- editor mode ---- */
+  #ed-toggle{position:fixed;top:14px;right:14px;z-index:30;width:44px;height:44px;
+    border-radius:50%;border:none;background:#0066cc;color:#fff;font-size:20px;
+    cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);}
+  #editor{position:fixed;left:0;right:0;bottom:0;z-index:29;
+    background:rgba(18,24,31,.94);color:#e7edf2;padding:16px 16px 24px;
+    transform:translateY(100%);transition:transform .25s ease;
+    font-family:'IBM Plex Mono',monospace;max-height:60vh;overflow-y:auto;}
+  #editor.open{transform:translateY(0);}
+  #editor select{width:100%;padding:9px;margin-bottom:12px;background:#1b232c;
+    color:#e7edf2;border:1px solid #33404d;font-family:inherit;font-size:14px;}
+  #editor .row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px;}
+  #editor .row label{width:34px;color:#7c8a99;text-transform:uppercase;letter-spacing:.06em;}
+  #editor .row input[type=range]{flex:1;accent-color:#0066cc;}
+  #editor .row .v{width:52px;text-align:right;color:#4fd1c5;}
+  #ed-export{width:100%;margin-top:8px;padding:11px;background:#0066cc;color:#fff;
+    border:none;font-family:inherit;font-size:13px;letter-spacing:.08em;cursor:pointer;}
+  #ed-out{width:100%;margin-top:10px;height:110px;display:none;background:#0f151b;
+    color:#8fe;border:1px solid #33404d;font-family:inherit;font-size:11px;padding:8px;}
+
+  .pulse{animation:pulse 1.8s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+</style>
+</head>
+<body>
+
+<div id="ar-container"></div>
+
+<div id="start">
+  <h1>Norscope</h1>
+  <div class="tag">AR-Erlebnis</div>
+  <p class="hint">
+    Kamera erlauben und auf die <b>Rückseite der Norscope-Karte</b> richten.
+    Die Karte am besten flach hinlegen. Das Headset, die Founder-Avatare
+    und Feature-Cards erscheinen direkt auf der Karte. <b>Tippe auf einen Avatar</b> um sein Profil zu sehen.
+  </p>
+  <button id="startBtn">Start</button>
+  <div id="fallback">Kamera-Probleme? <a href="viewer.html">3D-Ansicht ohne Karte öffnen</a></div>
+  <div id="err"></div>
+</div>
+
+<div id="scanhint"><span class="pulse">KARTE VOR DIE KAMERA HALTEN</span></div>
+<div id="debug"></div>
+
+<button id="ed-toggle" title="Editor">✎</button>
+<div id="editor">
+  <select id="ed-sel"></select>
+  <div class="row"><label>X</label><input type="range" id="ed-x" min="-0.7" max="0.7" step="0.005"><span class="v" id="val-x">0</span></div>
+  <div class="row"><label>Y (↕)</label><input type="range" id="ed-y" min="-1.1" max="1.1" step="0.005"><span class="v" id="val-y">0</span></div>
+  <div class="row"><label>Z (↔ vor)</label><input type="range" id="ed-z" min="0" max="0.3" step="0.005"><span class="v" id="val-z">0</span></div>
+  <div class="row"><label>Dreh</label><input type="range" id="ed-rot" min="-1.6" max="1.6" step="0.02"><span class="v" id="val-rot">0</span></div>
+  <div class="row"><label>Größe</label><input type="range" id="ed-scl" min="0.4" max="2.2" step="0.02"><span class="v" id="val-scl">1</span></div>
+  <button id="ed-export">Werte anzeigen / kopieren</button>
+  <textarea id="ed-out" readonly></textarea>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { MindARThree } from 'mindar-image-three';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const startEl = document.getElementById('start');
+const errEl = document.getElementById('err');
+const scanhint = document.getElementById('scanhint');
+const debugEl = document.getElementById('debug');
+let debugLines = [];
+let exporting = false;
+function debugLog(line) {
+  debugLines.push(line);
+  if (debugLines.length > 7) debugLines.shift();
+  debugEl.textContent = debugLines.join('\n');
+  fetch('/log', { method: 'POST', body: line }).catch(() => {});
+}
+window.addEventListener('error', (e) => {
+  debugLog('JS ERROR: ' + e.message + ' in ' + e.filename + ':' + e.lineno);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  debugLog('JS REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+});
+debugLog('Seite geladen: ' + new Date().toLocaleTimeString());
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('export') === 'true') {
+    setTimeout(() => {
+      document.getElementById('startBtn').click();
+    }, 500);
+  }
+
+// Any uncaught async failure (e.g. a missing .glb on the server) becomes a
+// visible message instead of a silent dead button.
+window.addEventListener('unhandledrejection', (e) => {
+  startEl.style.display = 'flex';
+  errEl.textContent = 'Fehler beim Laden: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) +
+    ' — prüfe, ob alle Dateien im assets-Ordner auf GitHub liegen.';
+  errEl.style.display = 'block';
+  debugLog('FEHLER: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+});
+
+// Cache-busting: mind-ar's internal fetch of imageTargetSrc uses the plain
+// URL with no cache-control, so browsers/CDNs can serve a stale .mind file
+// independently of the page's own ?v=N. Appending a fresh timestamp here
+// makes that structurally impossible — every load requests a brand-new URL.
+const TARGETS_URL = './assets/targets.mind?v=' + Date.now();
+
+async function checkTargets() {
+  try {
+    const r = await fetch(TARGETS_URL, { method: 'HEAD', cache: 'no-store' });
+    // Log the ACTUAL bytes the browser received for this exact request —
+    // this is the one fact that definitively confirms or rules out a stale
+    // cached .mind file, instead of guessing from symptoms.
+    const len = r.headers.get('content-length');
+    const age = r.headers.get('age');
+    debugLog('targets.mind: ' + (len ? len + ' bytes' : '?') + (age ? ' (age ' + age + 's)' : ' (frisch)'));
+    return r.ok;
+  } catch (e) { debugLog('targets.mind Fetch-Fehler: ' + e.message); return false; }
+}
+
+document.getElementById('startBtn').addEventListener('click', async () => {
+  errEl.style.display = 'none';
+
+  if (!(await checkTargets())) {
+    errEl.textContent = 'assets/targets.mind fehlt noch. Bitte das Tracking-Target kompilieren (siehe README, Schritt "Tracking-Target").';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const mindarThree = new MindARThree({
+    container: document.getElementById('ar-container'),
+    imageTargetSrc: TARGETS_URL,
+    uiScanning: 'no',
+    uiLoading: 'yes',
+    filterMinCF: 0.001,     // community-validated smooth values (aggressive
+    filterBeta: 10          // demo values caused visible vibration — see README)
+  });
+  const { renderer, scene, camera } = mindarThree;
+  renderer.toneMapping = THREE.NoToneMapping;   // ACES crushed whites to gray
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9098a4, 2.1));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.7);
+  dir.position.set(0.4, 1, 0.9);
+  scene.add(dir);
+  const fill = new THREE.DirectionalLight(0xcfe0ff, 0.9);
+  fill.position.set(-0.7, 0.4, 0.5);
+  scene.add(fill);
+  const front = new THREE.DirectionalLight(0xffffff, 0.7);
+  front.position.set(0, 0.2, 1.2);
+  scene.add(front);
+
+  const anchor = mindarThree.addAnchor(0);
+
+  // ---- editor state (declared EARLY: setupEditor is called later in this
+  // same scope, and let/const after the call site would crash with a
+  // temporal-dead-zone ReferenceError, killing the whole start flow) ----
+  let editTarget = null;
+  const editBase = new Map();
+  function isEditing(obj) { return editTarget === obj; }
+  function editBaseZ(obj, fb) { const b = editBase.get(obj); return b ? b.z : fb; }
+  function editBaseScale(obj, fb) { const b = editBase.get(obj); return b ? b.scale : fb; }
+
+  // billboard bookkeeping: these yaw toward the camera around the card normal
+  const billboards = [];          // groups in `flat` space (card XY, normal +Z)
+  const founderBillboards = [];   // nameplates inside founder groups
+  const camWorld = new THREE.Vector3();
+  const camLocal = new THREE.Vector3();
+  const gLocal = new THREE.Vector3();
+  const camSmoothWorld = new THREE.Vector3();   // low-pass filtered camera position (world space)
+  let camSmoothInit = false;
+  const anchorPos = new THREE.Vector3();
+  const anchorQuat = new THREE.Quaternion();
+  const anchorScale = new THREE.Vector3();
+  const SCENE_SCALE = 1.45;
+  const root = new THREE.Group();
+  root.scale.setScalar(0.001);
+  root.visible = false;
+  // root is a SIBLING of anchor.group (both children of mindarThree.scene),
+  // not a rigid child of it. anchor.group carries MindAR's raw per-frame
+  // tracked pose, which has inherent jitter even with good filter settings
+  // (this is a known MindAR limitation, not something filterMinCF/filterBeta
+  // alone can fully solve). Every frame, root's transform smoothly chases
+  // anchor.group's transform instead of copying it rigidly — this is the
+  // "custom smoothing on top of the raw tracked pose" the MindAR maintainers
+  // themselves recommend, and it damps jitter for EVERY object in the scene
+  // at once, not just the billboarded ones (which is all the earlier fixes
+  // in this file addressed).
+  scene.add(root);
+  let anchorSmoothInit = false;
+
+  // The MindAR image-target plane already faces the viewer (the card's printed
+  // face). So content authored upright in XY stands upright ON the card — no
+  // extra flattening. `flat` is a pass-through group; `STAND_UP = 0` means the
+  // panel/logo/button keep their authored upright orientation. Rings that
+  // should lie ON the card surface get their own local rotation where added.
+  const flat = new THREE.Group();
+  root.add(flat);
+  const STAND_UP = 0;
+
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  const load = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+  // UI elements render UNLIT: pure vertex colors, no shading -> crisp like print.
+  // DoubleSide is deliberate: with the nested billboard/pop-up rotations, a sign
+  // error in the yaw math could otherwise point the front face away from the
+  // camera and make the whole panel vanish (exactly what happened before this
+  // fix) — double-sided geometry makes that entire failure mode impossible.
+  function makeUnlit(objRoot) {
+    objRoot.traverse((c) => {
+      if (c.isMesh) c.material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+    });
+    return objRoot;
+  }
+
+  // ---- helper: soft glow ring (additive, no texture needed) ----
+  function glowRing(radius, thickness, color, opacity) {
+    const geo = new THREE.RingGeometry(radius - thickness, radius + thickness, 64);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI / 2;
+    return ring;
+  }
+  // ---- helper: soft vertical holographic beam ----
+  function beam(height, radius, color) {
+    const geo = new THREE.CylinderGeometry(radius, radius * 1.6, height, 20, 1, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.10, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.y = height / 2;
+    return m;
+  }
+
+  const glowPulses = [];  // {mesh, base}
+
+  // ================= HUB: Central Headset =================
+  const heroGroup = new THREE.Group();
+  const headset = (await load('./assets/headset.glb')).scene;
+  const hbox = new THREE.Box3().setFromObject(headset);
+  const hc = hbox.getCenter(new THREE.Vector3());
+  const hSize = hbox.max.x - hbox.min.x;
+  const hScale = 0.17 / hSize;   // central hero: 17 cm wide (slightly smaller to prevent overlap)
+  headset.scale.setScalar(hScale);
+  headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
+  headset.updateMatrixWorld(true);
+
+  const productGroup = new THREE.Group();
+  headset.traverse((child) => {
+    if (!child.isMesh) return;
+    const solid = new THREE.Mesh(child.geometry, new THREE.MeshStandardMaterial({
+      color: 0x1a2535, roughness: 0.35, metalness: 0.55,
+      envMapIntensity: 1.2,
+    }));
+    solid.applyMatrix4(child.matrixWorld);
+    productGroup.add(solid);
+  });
+
+  const headsetSpin = new THREE.Group();
+  headsetSpin.add(productGroup);
+  const headsetTilt = new THREE.Group();
+  headsetTilt.add(headsetSpin);
+  headsetTilt.rotation.x = -0.20;
+  headsetTilt.position.y = 0.08;   // hover above card
+  heroGroup.add(headsetTilt);
+
+  // Glow rings around headset
+  const heroRing1 = glowRing(0.13, 0.004, 0x0088ff, 0.55);
+  const heroRing2 = glowRing(0.165, 0.002, 0x00aaff, 0.28);
+  const heroRing3 = glowRing(0.20, 0.0012, 0x00ccff, 0.14);
+  heroRing1.position.y = 0.002;
+  heroRing2.position.y = 0.002;
+  heroRing3.position.y = 0.002;
+  heroGroup.add(heroRing1, heroRing2, heroRing3);
+  glowPulses.push(
+    { mesh: heroRing1, base: 0.55 },
+    { mesh: heroRing2, base: 0.28 },
+    { mesh: heroRing3, base: 0.14 }
+  );
+
+  // Vertical hologram beam
+  const scanBeam = beam(0.22, 0.09, 0x0066ff);
+  heroGroup.add(scanBeam);
+
+  // Logo lockup floating above headset
+  // Logo lockup floating independently at top center
+  const logoGroup = new THREE.Group();
+  const lockup = makeUnlit((await load('./assets/logo-lockup.glb')).scene);
+  lockup.scale.set(1.0, 1.0, 0.01);
+  lockup.position.set(0, 0, 0);
+  logoGroup.add(lockup);
+  flat.add(logoGroup);
+  billboards.push(logoGroup);
+  logoGroup.position.set(0.00, 0.44, 0.005);
+
+  heroGroup.position.set(-0.46, 0.04, 0.03);
+  heroGroup.scale.setScalar(1.00);
+  flat.add(heroGroup);
+  billboards.push(heroGroup);
+
+  // ================= FEATURE CARDS — radiating from headset =================
+  // 3 features arranged with exact spatial coordinates to prevent overlap
+  const FEATURES = [
+    { 
+      title: 'EFFIZIENZ', 
+      sub: 'Weniger Wartungsfehler. Weniger Reisekosten. Volle Dokumentation.',
+      bullets: [
+        'AR-Anleitungen direkt am Bauteil',
+        'Funktioniert komplett offline',
+        'Wartung automatisch dokumentiert'
+      ],
+      icon: '◈', color: '#00aaff', x: -0.06, y: 0.20 
+    },
+    { 
+      title: 'KNOW-HOW', 
+      sub: 'Wissen bleibt im Betrieb',
+      bullets: [
+        'Neue Fachkräfte lernen direkt am Gerät',
+        'Erfahrungswissen bleibt im Unternehmen',
+        'Schulungszeit spürbar verkürzt'
+      ],
+      icon: '◉', color: '#00ffcc', x: -0.06, y: 0.04 
+    },
+    { 
+      title: 'COMPLIANCE', 
+      sub: 'Immer prüfungsbereit',
+      bullets: [
+        'Jeder Schritt lückenlos erfasst',
+        'Fälschungssicher archiviert',
+        'Bereit für DGUV- & Arbeitsschutz-Prüfungen'
+      ],
+      icon: '◆', color: '#ffb700', x: -0.06, y: -0.12 
+    },
+  ];
+
+  const featureGroups = [];
+  const connectorLines = [];   // glowing connector lines headset → card
+
+  // Contact shadow helper and registry
+  const shadowMeshes = [];
+  function contactShadow(radius, x, y, opacity) {
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 40),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
+    );
+    m.position.set(x, y, 0.002);
+    flat.add(m);
+    shadowMeshes.push({ mesh: m, baseOpacity: opacity });
+    return m;
+  }
+
+  function makeFeatureCard(feat) {
+    const cw = 512, ch = 360;
+    const fc = document.createElement('canvas');
+    fc.width = cw; fc.height = ch;
+    const ctx = fc.getContext('2d');
+
+    // Dark-glass background
+    ctx.fillStyle = 'rgba(8, 14, 28, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cw, ch, 28);
+    ctx.fill();
+
+    // Accent glow border
+    ctx.strokeStyle = feat.color;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.roundRect(3, 3, cw - 6, ch - 6, 26);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Top accent bar
+    ctx.fillStyle = feat.color;
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.roundRect(3, 3, cw - 6, 8, [26, 26, 0, 0]);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+
+    // Icon
+    ctx.fillStyle = feat.color;
+    ctx.font = 'bold 56px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(feat.icon, 52, 70);
+
+    // Title
+    ctx.fillStyle = '#f0f8ff';
+    ctx.font = 'bold 42px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(feat.title, 96, 68);
+
+    // Separator
+    ctx.strokeStyle = feat.color;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(24, 94);
+    ctx.lineTo(cw - 24, 94);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Subtitle
+    ctx.fillStyle = feat.color;
+    ctx.font = 'italic bold 23px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(feat.sub, 24, 128);
+
+    // Bullets
+    let startY = 164;
+    const lineH = 32;
+    const bulletIndent = 24;
+
+    feat.bullets.forEach(bText => {
+      // Draw bullet dot
+      ctx.fillStyle = feat.color;
+      ctx.font = '22px sans-serif';
+      ctx.fillText('•', 24, startY);
+
+      // Draw bullet text
+      ctx.fillStyle = '#a8c0d6';
+      ctx.font = '22px sans-serif';
+
+      const maxW = cw - 24 - 24 - bulletIndent; // 440px
+      const words = bText.split(' ');
+      let line = '';
+
+      words.forEach(w => {
+        const test = line + w + ' ';
+        if (ctx.measureText(test).width > maxW && line) {
+          ctx.fillText(line.trim(), 24 + bulletIndent, startY);
+          startY += lineH;
+          line = w + ' ';
+        } else {
+          line = test;
+        }
+      });
+      if (line.trim()) {
+        ctx.fillText(line.trim(), 24 + bulletIndent, startY);
+        startY += lineH;
+      }
+      startY += 8; // small gap between bullets
+    });
+
+    const tex = new THREE.CanvasTexture(fc);
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
+
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.148), mat);
+    return plane;
+  }
+
+  for (const feat of FEATURES) {
+    const fg = new THREE.Group();
+    const card = makeFeatureCard(feat);
+    const stand = new THREE.Group();
+    stand.rotation.x = Math.PI / 2;   // face outward in card-plane
+    stand.add(card);
+    fg.add(stand);
+
+    // Position in flat space
+    fg.position.set(feat.x, feat.y, 0.005);
+
+    // Contact shadow under card
+    contactShadow(0.072, feat.x, feat.y, 0.08);
+
+    // Glowing connector line: headset center → card
+    const origin = new THREE.Vector3(-0.46, 0.04, 0.03);
+    const target = new THREE.Vector3(feat.x, feat.y, 0.005);
+    const points = [origin, target];
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(feat.color),
+      transparent: true, opacity: 0.4,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const line = new THREE.Line(lineGeo, lineMat);
+    flat.add(line);
+    connectorLines.push({ line, mat: lineMat });
+
+    flat.add(fg);
+    featureGroups.push(fg);
+    billboards.push(fg);
+  }
+
+  // ================= CTA button — bottom =================
+  const cta = makeUnlit((await load('./assets/cta-button.glb')).scene);
+  cta.scale.setScalar(1.50);
+  const ctaGroup = new THREE.Group();
+  const ctaStand = new THREE.Group();
+  ctaStand.rotation.x = Math.PI / 2;
+  ctaStand.position.z = 0.03;
+  ctaStand.add(cta);
+  ctaGroup.add(ctaStand);
+  ctaGroup.position.set(0.000, -0.36, 0.000);
+  ctaGroup.rotation.y = 0.00;
+  ctaGroup.scale.setScalar(1.80);
+  flat.add(ctaGroup);
+  billboards.push(ctaGroup);
+
+  // Contact shadow under headset center and CTA
+  contactShadow(0.14, -0.46, 0.04, 0.12);   // headset center
+  contactShadow(0.10, 0.00, -0.36, 0.06);  // CTA
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let ctaArmed = false;
+
+  // ================= AVATARS: Sara (left) + Siddhant (right) =================
+  // Each avatar has: glow ring, 3D avatar model, name-chip canvas, profile-card canvas (hidden initially)
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = src;
+    });
+  }
+
+  function drawCoverImage(ctx, img, x, y, w, h) {
+    const imgRatio = img.width / img.height;
+    const targetRatio = w / h;
+    let sx = 0, sy = 0, sw = img.width, sh = img.height;
+    if (imgRatio > targetRatio) {
+      sw = img.height * targetRatio;
+      sx = (img.width - sw) / 2;
+    } else {
+      sh = img.width / targetRatio;
+      sy = (img.height - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
+
+  function makeAvatarPlaceholder(accentColor) {
+    // Silhouette circle: a simple gradient canvas standing in for a real photo
+    const s = 256;
+    const fc = document.createElement('canvas');
+    fc.width = s; fc.height = s;
+    const ctx = fc.getContext('2d');
+    // Background circle
+    const grd = ctx.createRadialGradient(s/2, s/2, 10, s/2, s/2, s/2);
+    grd.addColorStop(0, '#2a3a55');
+    grd.addColorStop(1, '#111827');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(s/2, s/2, s/2, 0, Math.PI*2);
+    ctx.fill();
+    // Silhouette body
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(s/2, s*0.37, s*0.18, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s/2, s*0.77, s*0.28, s*0.25, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    // Accent ring
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(s/2, s/2, s/2 - 4, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    return fc;
+  }
+
+  function makeNameChip(name, role, accentColor) {
+    const cw = 360, ch = 90;
+    const fc = document.createElement('canvas');
+    fc.width = cw; fc.height = ch;
+    const ctx = fc.getContext('2d');
+    ctx.fillStyle = 'rgba(8,14,28,0.90)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cw, ch, 18);
+    ctx.fill();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.roundRect(2, 2, cw-4, ch-4, 16);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#f0f8ff';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, cw/2, 42);
+    ctx.fillStyle = accentColor;
+    ctx.font = '26px sans-serif';
+    ctx.fillText(role, cw/2, 76);
+    const tex = new THREE.CanvasTexture(fc);
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+    return new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.035), mat);
+  }
+
+  function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
+    const cw = 600, ch = 720;
+    const fc = document.createElement('canvas');
+    fc.width = cw; fc.height = ch;
+    const ctx = fc.getContext('2d');
+
+    // Premium dark-glass gradient background
+    const bgGrd = ctx.createRadialGradient(cw/2, ch/2, 10, cw/2, ch/2, ch*0.8);
+    bgGrd.addColorStop(0, '#162235');
+    bgGrd.addColorStop(1, '#080d16');
+    ctx.fillStyle = bgGrd;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, cw, ch, 36);
+    ctx.fill();
+
+    // Double glow border
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.roundRect(3, 3, cw-6, ch-6, 33);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Thin interior glass sheen border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(9, 9, cw-18, ch-18, 27);
+    ctx.stroke();
+
+    // Top accent bar
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.20;
+    ctx.fillRect(9, 9, cw-18, 8);
+    ctx.globalAlpha = 1.0;
+
+    // Avatar circle photo
+    const r = 96, cx2 = cw/2, cy2 = 145;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, r, 0, Math.PI*2);
+    ctx.clip();
+    drawCoverImage(ctx, avatarCanvas, cx2-r, cy2-r, r*2, r*2);
+    ctx.restore();
+
+    // Ring around photo
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 4;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, r+4, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Name - Space Grotesk
+    ctx.fillStyle = '#f0f8ff';
+    ctx.font = 'bold 44px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, cw/2, 295);
+
+    // Role - IBM Plex Sans
+    ctx.fillStyle = accentColor;
+    ctx.font = 'bold 24px "IBM Plex Sans", sans-serif';
+    ctx.fillText(role.toUpperCase(), cw/2, 340);
+
+    // Separator dots
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.35;
+    [-20, 0, 20].forEach(dx => {
+      ctx.beginPath();
+      ctx.arc(cw/2+dx, 375, 4, 0, Math.PI*2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+
+    // Helper to draw rounded boxes for contact options
+    function drawContactBox(y, icon, label, text, isEmail) {
+      const bx = 44, bw = cw - 88, bh = 74, br = 14;
+      // Box fill
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.roundRect(bx, y, bw, bh, br);
+      ctx.fill();
+      // Box border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Icon on left
+      ctx.fillStyle = accentColor;
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(icon, bx + 22, y + 46);
+
+      // Value text on right
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = isEmail ? '500 21px "IBM Plex Sans", sans-serif' : '500 24px "IBM Plex Sans", sans-serif';
+      ctx.fillText(text, bx + 70, y + 45);
+    }
+
+    // Phone Row
+    drawContactBox(425, '📞', 'PHONE', phone, false);
+
+    // Email Row
+    drawContactBox(515, '✉', 'EMAIL', email, true);
+
+    // Norscope label/logo at bottom
+    ctx.fillStyle = accentColor;
+    ctx.globalAlpha = 0.55;
+    ctx.font = 'bold 20px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('NORSCOPE', cw/2, ch - 40);
+    ctx.globalAlpha = 1.0;
+
+    const tex = new THREE.CanvasTexture(fc);
+    tex.minFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.23, 0.276), mat); // slightly wider geometry
+    return plane;
+  }
+
+  const mixers = [];
+
+  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos) {
+    const g = new THREE.Group();
+
+    // Glow ring at base (1.5x scale)
+    const ring = glowRing(0.0825, 0.0042, parseInt(accentHex.replace('#',''), 16), 0.5);
+    ring.position.y = 0.001;
+    g.add(ring);
+    glowPulses.push({ mesh: ring, base: 0.5 });
+
+    // Avatar 3D model (42 cm tall, 1.5x scale)
+    const gltf = await load(avatarUrl);
+    const av = gltf.scene;
+    const abox = new THREE.Box3().setFromObject(av);
+    const avH = abox.max.y - abox.min.y;
+    const avS = 0.42 / avH;   // 42 cm tall
+    av.scale.setScalar(avS);
+    av.position.set(0, -abox.min.y * avS, 0);
+    g.add(av);
+    if (gltf.animations && gltf.animations.length) {
+      const mixer = new THREE.AnimationMixer(av);
+      mixer.clipAction(gltf.animations[0]).play();
+      mixers.push(mixer);
+    }
+
+    // Name chip — floats just below the avatar feet
+    const chip = makeNameChip(name, role, accentHex);
+    chip.position.set(0, -0.03, 0.005);
+    g.add(chip);
+
+    // Contact shadow
+    contactShadow(0.098, xPos, yPos, 0.08);
+
+    // Pop-up stand so group faces camera
+    g.rotation.x = Math.PI / 2;
+    g.position.set(xPos, yPos, 0.005);
+    flat.add(g);
+    billboards.push(g);
+
+    // Profile card — added directly to flat and registered as a billboard
+    let avatarCanvas;
+    try {
+      avatarCanvas = await loadImage(photoUrl);
+    } catch (err) {
+      console.warn("Could not load photo, falling back to placeholder:", err);
+      avatarCanvas = makeAvatarPlaceholder(accentHex);
+    }
+    const profileCard = makeProfileCard(name, role, phone, email, accentHex, avatarCanvas);
+    flat.add(profileCard);
+    billboards.push(profileCard);
+
+    // Position profile card on opposite side of the card
+    const cardX = xPos < 0 ? 0.12 : -0.12;
+    profileCard.position.set(cardX, 0.05, 0.08);
+    profileCard.scale.setScalar(0.0001); // hidden initially
+
+    return { group: g, profileCard, ring, accentHex };
+  }
+
+  const saraData = await buildAvatarGroup(
+    './assets/sara-avatar.glb',
+    './assets/Sara Sarvestani.PNG',
+    'Sara Sarvestani', 'Co-Founderin & CEO',
+    '+49 1525 2993422', 'sara.shafiei.sarvestani@tu-clausthal.de',
+    '#00ffcc', 0.38, -0.04
+  );
+  const siddhantData = await buildAvatarGroup(
+    './assets/siddhant-avatar.glb',
+    './assets/Siddhant Rebello.png',
+    'Siddhant Rebello', 'Co-Founder & CTO',
+    '+49 1551 0350105', 'siddhant.jude.rebello@tu-clausthal.de',
+    '#c084fc', 0.52, 0.04
+  );
+  const saraGroup = saraData.group;
+  const siddhantGroup = siddhantData.group;
+
+  // ---- Tap-to-Expand system ----
+  // expandedItem: null | 'sara' | 'siddhant' | 'headset'
+  let expandedItem = null;
+  const EXPAND_DURATION = 380;   // ms
+  const expandAnims = [];        // {card, fromScale, toScale, startMs, duration}
+
+  function startExpandAnim(card, toScale, duration) {
+    // remove any existing anim for this card
+    const idx = expandAnims.findIndex(a => a.card === card);
+    if (idx !== -1) expandAnims.splice(idx, 1);
+    expandAnims.push({ card, fromScale: card.scale.x, toScale, startMs: performance.now(), duration });
+  }
+
+  function openProfile(which) {
+    const isReopening = (expandedItem === which);
+    // Close whatever is open
+    if (expandedItem === 'sara') startExpandAnim(saraData.profileCard, 0.0001, 200);
+    if (expandedItem === 'siddhant') startExpandAnim(siddhantData.profileCard, 0.0001, 200);
+    if (isReopening) { expandedItem = null; return; }
+    // Open the new one
+    expandedItem = which;
+    if (which === 'sara') startExpandAnim(saraData.profileCard, 2.2, EXPAND_DURATION);
+    if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 2.2, EXPAND_DURATION);
+  }
+
+  function handleTap(clientX, clientY, targetEl) {
+    // Prevent raycasting if clicking on start overlay or editor panel
+    if (targetEl && (targetEl.closest('#editor') || targetEl.closest('#start'))) {
+      debugLog('Ignoriere Tap im Editor/Start-Overlay');
+      return;
+    }
+
+    debugLog(`Tap bei: ${clientX}, ${clientY} (armed: ${ctaArmed})`);
+    if (!ctaArmed) return;
+    if (editTarget !== null) return;
+
+    // Use window dimensions for robust raycast NDC calculation
+    pointer.x = (clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    // Raycast check for active profile cards first (so clicks on contact info are processed)
+    if (expandedItem === 'sara') {
+      const hitsSaraCard = raycaster.intersectObject(saraData.profileCard, true);
+      if (hitsSaraCard.length > 0) {
+        const uv = hitsSaraCard[0].uv;
+        debugLog(`Sara-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
+        if (uv.y >= 0.15 && uv.y < 0.29) {
+          window.location.href = 'mailto:sara.shafiei.sarvestani@tu-clausthal.de?subject=Kontakt%20Norscope';
+        } else if (uv.y >= 0.29 && uv.y < 0.43) {
+          window.location.href = 'tel:+4915252993422';
+        } else {
+          openProfile('sara');
+        }
+        return;
+      }
+    }
+    if (expandedItem === 'siddhant') {
+      const hitsSiddhantCard = raycaster.intersectObject(siddhantData.profileCard, true);
+      if (hitsSiddhantCard.length > 0) {
+        const uv = hitsSiddhantCard[0].uv;
+        debugLog(`Siddhant-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
+        if (uv.y >= 0.15 && uv.y < 0.29) {
+          window.location.href = 'mailto:siddhant.jude.rebello@tu-clausthal.de?subject=Kontakt%20Norscope';
+        } else if (uv.y >= 0.29 && uv.y < 0.43) {
+          window.location.href = 'tel:+4915510350105';
+        } else {
+          openProfile('siddhant');
+        }
+        return;
+      }
+    }
+
+    const hitsLogo = raycaster.intersectObject(logoGroup, true);
+    const hitsCTA = raycaster.intersectObject(ctaGroup, true);
+    const hitsHero = raycaster.intersectObject(heroGroup, true);
+    const hitsSara = raycaster.intersectObject(saraGroup, true);
+    const hitsSiddhant = raycaster.intersectObject(siddhantGroup, true);
+
+    // Raycast against feature cards
+    let hitFeatureIdx = -1;
+    for (let i = 0; i < featureGroups.length; i++) {
+      const hitsFeat = raycaster.intersectObject(featureGroups[i], true);
+      if (hitsFeat.length > 0) {
+        hitFeatureIdx = i;
+        break;
+      }
+    }
+
+    debugLog(`Treffer: Logo=${hitsLogo.length}, CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Sara=${hitsSara.length}, Siddhant=${hitsSiddhant.length}, Feature=${hitFeatureIdx !== -1}`);
+
+    // Logo
+    if (hitsLogo.length > 0) {
+      debugLog('Tapped Logo -> Homepage');
+      window.location.href = 'https://www.norscope.com/';
+      return;
+    }
+
+    // CTA button
+    if (hitsCTA.length > 0) {
+      debugLog('Tapped CTA Button -> Weiterleitung');
+      window.location.href = 'https://www.norscope.com/#/contact';
+      return;
+    }
+    // Headset hub
+    if (hitsHero.length > 0) {
+      debugLog('Tapped Headset -> Focus Headset');
+      openProfile('headset');
+      return;
+    }
+    // Sara avatar
+    if (hitsSara.length > 0) {
+      debugLog('Tapped Sara -> Focus Sara');
+      openProfile('sara');
+      return;
+    }
+    // Siddhant avatar
+    if (hitsSiddhant.length > 0) {
+      debugLog('Tapped Siddhant -> Focus Siddhant');
+      openProfile('siddhant');
+      return;
+    }
+    // Feature card
+    if (hitFeatureIdx !== -1) {
+      debugLog(`Tapped Feature ${hitFeatureIdx + 1} -> Focus Feature`);
+      openProfile(`feature${hitFeatureIdx}`);
+      return;
+    }
+
+    // Tapped empty space → close all
+    if (expandedItem !== null) {
+      debugLog('Tapped ins Leere -> Schließe Focus');
+      openProfile(expandedItem);
+    }
+  }
+
+  // Register modern pointerdown unified listener on window for 100% click/touch capture reliability
+  window.addEventListener('pointerdown', (e) => {
+    handleTap(e.clientX, e.clientY, e.target);
+  });
+
+
+  // ---- staged entrance: hub pops in first, then avatars, then feature cards ----
+  const entrances = [
+    { obj: heroGroup,          delay: 0 },
+    { obj: ctaGroup,           delay: 150 },
+    { obj: saraGroup,          delay: 280 },
+    { obj: siddhantGroup,      delay: 400 },
+    ...featureGroups.map((fg, i) => ({ obj: fg, delay: 520 + i * 110 })),
+  ];
+  // capture each object's authored scale and position BEFORE zeroing
+  entrances.forEach(e => {
+    e.base = e.obj.scale.x;
+    e.basePos = e.obj.position.clone();
+  });
+  entrances.forEach(e => { e.obj.scale.setScalar(0.0001); });
+  function easeOutBack(p) { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
+ 
+  // ================= EDITOR MODE — live positioning, like Adobe Aero =================
+  // Registered elements the editor can move/rotate/scale. Base scale captured
+  // so the scale slider is relative to each element's authored size.
+  const baseScaleOf = (obj) => entrances.find(e => e.obj === obj).base;
+  const EDITABLE = [
+    { name: 'Headset (Hub)', obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
+    { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
+    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
+    { name: 'Siddhant (Av)',  obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
+    ...featureGroups.map((fg, i) => ({ name: 'Feature ' + (i + 1), obj: fg, baseScale: baseScaleOf(fg) })),
+  ];
+  setupEditor(EDITABLE);
+
+  // (editor state is declared early, right after the anchor — see above)
+
+  function setupEditor(list) {
+    // Seed with each element's TRUE authored scale (list[i].baseScale, captured
+    // before the entrance animation zeroed it out) — not the live .scale.x,
+    // which at this point in execution is still 0.0001 (entrance hasn't run
+    // yet). Reading the live value here was the actual bug behind the
+    // invisible CTA button: its idle pulse used this stored value as a
+    // multiplier every frame, permanently collapsing it to near-zero size
+    // shortly after its entrance animation finished.
+    list.forEach(e => editBase.set(e.obj, { z: e.obj.position.z, scale: e.baseScale }));
+    const $ = (id) => document.getElementById(id);
+    const panel = $('editor');
+    const sel = $('ed-sel');
+    list.forEach((e, i) => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = e.name; sel.appendChild(o);
+    });
+    const ctrls = ['x','y','z','rot','scl'];
+    function syncFrom(e) {
+      $('ed-x').value = e.obj.position.x;
+      $('ed-y').value = e.obj.position.y;
+      $('ed-z').value = e.obj.position.z;
+      $('ed-rot').value = e.obj.rotation.y;
+      $('ed-scl').value = e.obj.scale.x / e.baseScale;
+      $('val-x').textContent = (+$('ed-x').value).toFixed(3);
+      $('val-y').textContent = (+$('ed-y').value).toFixed(3);
+      $('val-z').textContent = (+$('ed-z').value).toFixed(3);
+      $('val-rot').textContent = (+$('ed-rot').value).toFixed(2);
+      $('val-scl').textContent = (+$('ed-scl').value).toFixed(2);
+    }
+    let current = list[0];
+    function select(i) {
+      current = list[i];
+      editTarget = current.obj;
+      // Do not overwrite editBase here to prevent capturing active Z-bob or scale pulse.
+      syncFrom(current);
+    }
+    sel.addEventListener('change', () => select(+sel.value));
+    $('ed-x').addEventListener('input', () => { current.obj.position.x = +$('ed-x').value; $('val-x').textContent = (+$('ed-x').value).toFixed(3); });
+    $('ed-y').addEventListener('input', () => { current.obj.position.y = +$('ed-y').value; $('val-y').textContent = (+$('ed-y').value).toFixed(3); });
+    $('ed-z').addEventListener('input', () => {
+      current.obj.position.z = +$('ed-z').value;
+      const existing = editBase.get(current.obj);
+      const s = existing ? existing.scale : current.baseScale;
+      editBase.set(current.obj, { z: +$('ed-z').value, scale: s });
+      $('val-z').textContent = (+$('ed-z').value).toFixed(3);
+    });
+    $('ed-rot').addEventListener('input', () => { current.obj.rotation.y = +$('ed-rot').value; $('val-rot').textContent = (+$('ed-rot').value).toFixed(2); });
+    $('ed-scl').addEventListener('input', () => {
+      const s = +$('ed-scl').value * current.baseScale;
+      current.obj.scale.setScalar(s);
+      const existing = editBase.get(current.obj);
+      const zVal = existing ? existing.z : current.obj.position.z;
+      editBase.set(current.obj, { z: zVal, scale: s });
+      $('val-scl').textContent = (+$('ed-scl').value).toFixed(2);
+    });
+    $('ed-export').addEventListener('click', async () => {
+      const lines = list.map(e => {
+        const p = e.obj.position, r = e.obj.rotation, sc = (e.obj.scale.x / e.baseScale);
+        return `${e.name}: pos(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)})  rotY=${r.y.toFixed(2)}  scale=${sc.toFixed(2)}`;
+      }).join('\n');
+      $('ed-out').value = lines; $('ed-out').style.display = 'block'; $('ed-out').select();
+
+      // Trigger automatic GLB export and upload to /upload
+      exporting = true;
+      try {
+        debugLog('Starte GLB-Export...');
+        
+        // 1. Save original transforms
+        const exportObjs = [heroGroup, ctaGroup, ...featureGroups];
+        const saved = exportObjs.map(o => ({
+          obj: o, pos: o.position.clone(), rot: o.rotation.clone(), scl: o.scale.clone()
+        }));
+        
+        // 2. Update matrix worlds so exporter sees current positions
+        exportObjs.forEach(o => o.updateMatrixWorld(true));
+        
+        // 3. Create temp scene for export
+        const exportScene = new THREE.Scene();
+        exportObjs.forEach(o => exportScene.add(o));
+        
+        // 4. Run GLTFExporter
+        const exporter = new GLTFExporter();
+        exporter.parse(
+          exportScene,
+          async (glbBuffer) => {
+            // Restore groups to flat parent
+            saved.forEach(s => {
+              flat.add(s.obj);
+              s.obj.position.copy(s.pos);
+              s.obj.rotation.copy(s.rot);
+              s.obj.scale.copy(s.scl);
+              s.obj.updateMatrixWorld(true);
+            });
+            exporting = false;
+
+            
+            debugLog('Export erfolgreich: ' + glbBuffer.byteLength + ' Bytes');
+            
+            // Upload to Python server
+            try {
+              const blob = new Blob([glbBuffer], { type: 'application/octet-stream' });
+              const res = await fetch('/upload', {
+                method: 'POST',
+                body: blob
+              });
+              if (res.ok) {
+                debugLog('GLB erfolgreich hochgeladen!');
+              } else {
+                debugLog('Upload-Fehler: ' + res.statusText);
+              }
+            } catch (uploadErr) {
+              debugLog('Upload-Fehler: ' + uploadErr.message);
+            }
+          },
+          (parseErr) => {
+            // Restore groups to flat parent
+            saved.forEach(s => {
+              flat.add(s.obj);
+              s.obj.position.copy(s.pos);
+              s.obj.rotation.copy(s.rot);
+              s.obj.scale.copy(s.scl);
+              s.obj.updateMatrixWorld(true);
+            });
+            exporting = false;
+            debugLog('Export-Fehler: ' + (parseErr && parseErr.message ? parseErr.message : parseErr));
+          },
+          { binary: true }
+        );
+      } catch (err) {
+        exporting = false;
+        debugLog('Export-Fehler: ' + err.message);
+      }
+    });
+    $('ed-toggle').addEventListener('click', () => {
+      const open = panel.classList.toggle('open');
+      $('ed-toggle').textContent = open ? '×' : '✎';
+      if (!open) editTarget = null; else select(+sel.value);
+    });
+    select(0);
+    editTarget = null;   // idle animation runs until the user opens the editor
+  }
+
+  // ================= reveal + idle animation =================
+  let revealT = null;
+  let foundCount = 0;
+  let targetVisible = false;
+  anchor.onTargetFound = () => {
+    foundCount++;
+    debugLog('✓ Ziel erkannt (#' + foundCount + ') ' + new Date().toLocaleTimeString());
+    scanhint.style.display = 'none';
+    revealT = performance.now();
+    ctaArmed = true;
+    targetVisible = true;
+    anchorSmoothInit = false;   // snap to the fresh pose next frame instead of gliding in
+  };
+  anchor.onTargetLost = () => {
+    debugLog('Ziel verloren ' + new Date().toLocaleTimeString());
+    scanhint.style.display = 'block'; ctaArmed = false;
+    targetVisible = false;
+  };
+  try {
+    debugLog('mindarThree.start() läuft...');
+    await mindarThree.start();
+    debugLog('AR gestartet, Kamera läuft. Warte auf Ziel...');
+    startEl.style.display = 'none';
+    scanhint.style.display = 'block';
+    const clock = new THREE.Clock();
+    
+
+
+    renderer.setAnimationLoop(() => {
+     try {
+      if (exporting) {
+        renderer.render(scene, camera);
+        return;
+      }
+      const dt = clock.getDelta();
+      const t = clock.elapsedTime;
+      mixers.forEach(m => m.update(dt));
+ 
+      // scan-in reveal scale factor: applied to root's tracking scale
+      let revealScale = 1.0;
+      if (revealT !== null) {
+        const el = performance.now() - revealT;
+        const p = Math.min(1, el / 350);
+        revealScale = 0.001 + (1 - Math.pow(1 - p, 3)) * (SCENE_SCALE - 0.001);
+        let allDone = p >= 1;
+        entrances.forEach(e => {
+          const ep = Math.min(1, Math.max(0, (el - 250 - e.delay) / 420));
+          e.obj.scale.setScalar(Math.max(0.0001, e.base * easeOutBack(ep)));
+          if (ep < 1) allDone = false;
+        });
+        if (allDone) revealT = null;
+      }
+ 
+      // Smoothly chase MindAR's raw tracked pose
+      anchor.group.updateMatrixWorld(true);
+      root.visible = targetVisible;
+      if (root.visible) {
+        anchor.group.matrixWorld.decompose(anchorPos, anchorQuat, anchorScale);
+        
+        const finite = Number.isFinite(anchorPos.x) && Number.isFinite(anchorPos.y) && Number.isFinite(anchorPos.z)
+          && Number.isFinite(anchorQuat.x) && Number.isFinite(anchorQuat.y) && Number.isFinite(anchorQuat.z) && Number.isFinite(anchorQuat.w)
+          && anchorScale.x !== 0;
+        if (finite) {
+          const lambda = 6.0;   // lowered to 6.0 for stronger low-pass noise filtering
+          const k = 1 - Math.exp(-lambda * dt);
+          
+          // Multiply target scale by the reveal animation factor so it grows smoothly
+          const targetScale = new THREE.Vector3().copy(anchorScale).multiplyScalar(revealScale);
+          
+          if (!anchorSmoothInit) {
+            root.position.copy(anchorPos);
+            root.quaternion.copy(anchorQuat);
+            root.scale.copy(targetScale);
+            anchorSmoothInit = true;
+          } else {
+            root.position.lerp(anchorPos, k);
+            root.quaternion.slerp(anchorQuat, k);
+            root.scale.lerp(targetScale, k);
+          }
+        }
+        if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) {
+          debugLog('pos ' + root.position.x.toFixed(2) + ',' + root.position.y.toFixed(2) + ',' + root.position.z.toFixed(2)
+            + ' scl ' + anchorScale.x.toFixed(2) + ' rScl ' + root.scale.x.toFixed(3) + ' fin=' + finite);
+        }
+
+        // ---- Billboard (frontal facing & keep upright) logic for registered elements ----
+        camera.getWorldPosition(camWorld);
+        if (!camSmoothInit) {
+          camSmoothWorld.copy(camWorld);
+          camSmoothInit = true;
+        } else {
+          camSmoothWorld.lerp(camWorld, 0.1); // smooth low-pass camera tracker
+        }
+        
+        const objWorldPos = new THREE.Vector3();
+        const zAxis = new THREE.Vector3();
+        const xAxis = new THREE.Vector3();
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const matrix = new THREE.Matrix4();
+        const targetQuat = new THREE.Quaternion();
+        const parentWorldQuat = new THREE.Quaternion();
+        const offsetQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+        
+        // Cylindrical world-up billboarding for all registered elements
+        // Feature cards and CTA use the Math.PI/2 offset (their child stands rotated).
+        billboards.forEach(b => {
+          if (!isEditing(b)) {
+            b.getWorldPosition(objWorldPos);
+            zAxis.subVectors(camSmoothWorld, objWorldPos);
+            zAxis.y = 0;
+            zAxis.normalize();
+            if (zAxis.lengthSq() === 0) zAxis.set(0, 0, 1);
+            xAxis.crossVectors(worldUp, zAxis).normalize();
+            matrix.makeBasis(xAxis, worldUp, zAxis);
+            targetQuat.setFromRotationMatrix(matrix);
+            // Feature cards and CTA have a Math.PI/2 child stand — apply offset
+            const needsOffset = (b === ctaGroup) || featureGroups.includes(b);
+            if (needsOffset) targetQuat.multiply(offsetQuat);
+            b.parent.getWorldQuaternion(parentWorldQuat);
+            parentWorldQuat.invert();
+            b.quaternion.copy(parentWorldQuat).multiply(targetQuat);
+          }
+        });
+
+        // Pulse connector line opacity
+        connectorLines.forEach(({ mat }, i) => {
+          mat.opacity = 0.28 + 0.20 * Math.sin(t * 1.8 + i * 1.1);
+        });
+
+        // Avatar billboarding: same cylindrical system, with Math.PI/2 child offset
+        // (saraGroup and siddhantGroup are already in the billboards array)
+      } else {
+        anchorSmoothInit = false;
+        camSmoothInit = false;
+      }
+
+
+
+      // headset: slow continuous spin
+      headsetSpin.rotation.y = t * 0.45;
+
+      // gentle hover bob (only when not expanded)
+      if (expandedItem === null) {
+        if (!isEditing(heroGroup)) {
+          heroGroup.position.z = editBaseZ(heroGroup, 0.03) + Math.sin(t * 1.1) * 0.008;
+        }
+        featureGroups.forEach((fg, i) => {
+          if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
+        });
+        if (!isEditing(saraGroup))
+          saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
+        if (!isEditing(siddhantGroup))
+          siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 1.8) * 0.006;
+      }
+
+      // CTA: stationary
+      if (!isEditing(ctaGroup) && revealT === null && expandedItem === null) {
+        ctaGroup.scale.setScalar(editBaseScale(ctaGroup, 1.80));
+      }
+
+      // Smooth focus/unfocus scale and position transition for all elements
+      if (revealT === null) {
+        let activeGroup = null;
+        if (expandedItem === 'sara') activeGroup = saraGroup;
+        else if (expandedItem === 'siddhant') activeGroup = siddhantGroup;
+        else if (expandedItem === 'headset') activeGroup = heroGroup;
+        else if (expandedItem && expandedItem.startsWith('feature')) {
+          const idx = parseInt(expandedItem.replace('feature', ''));
+          activeGroup = featureGroups[idx];
+        }
+
+        entrances.forEach(e => {
+          if (isEditing(e.obj)) return;
+          let targetScale = e.base;
+          let targetPos = e.basePos.clone();
+
+          if (expandedItem !== null) {
+            if (e.obj !== activeGroup) {
+              targetScale = 0.0001; // Hide other elements
+            } else {
+              // Zoom active object
+              if (expandedItem === 'headset') {
+                targetScale = e.base * 2.5; // Zoom headset significantly
+                targetPos.set(0.00, 0.02, 0.20); // Center and fly closer to camera
+              } else if (expandedItem.startsWith('feature')) {
+                targetScale = e.base * 3.4; // Make focused feature card massive
+                targetPos.set(0.00, 0.08, 0.24); // Center and fly closest to camera for perfect reading
+              } else if (expandedItem === 'sara') {
+                targetPos.set(0.28, 0.02, 0.05); // Move Sara slightly left/up to leave space
+              } else if (expandedItem === 'siddhant') {
+                targetPos.set(0.28, 0.02, 0.05); // Move Siddhant left/up to leave space
+              }
+            }
+          }
+          const sRate = 9.0 * dt;
+          e.obj.scale.setScalar(THREE.MathUtils.lerp(e.obj.scale.x, targetScale, Math.min(1, sRate)));
+
+          const pRate = 9.0 * dt;
+          e.obj.position.lerp(targetPos, Math.min(1, pRate));
+        });
+
+        // Fade shadows in Focus Mode
+        shadowMeshes.forEach(({ mesh, baseOpacity }) => {
+          const targetOpacity = (expandedItem !== null) ? 0.0 : baseOpacity;
+          mesh.material.opacity = THREE.MathUtils.lerp(mesh.material.opacity, targetOpacity, Math.min(1, 10.0 * dt));
+        });
+
+        // Fade connector lines
+        connectorLines.forEach(({ mat }) => {
+          const targetOpacity = (expandedItem !== null) ? 0.0 : 0.4;
+          mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, Math.min(1, 12.0 * dt));
+        });
+
+        // Hide logo if any item is expanded
+        const targetLogoScale = (expandedItem !== null) ? 0.0001 : 1.0;
+        logoGroup.scale.setScalar(THREE.MathUtils.lerp(logoGroup.scale.x, targetLogoScale, Math.min(1, 10.0 * dt)));
+      }
+
+      // Expand/Collapse animations for canvas profiles (easeOutBack for open, easeIn for close)
+      function easeOutBackLocal(p) { const c=1.5; return 1+(c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2); }
+      function easeIn(p) { return p*p; }
+      const now2 = performance.now();
+      for (let i = expandAnims.length - 1; i >= 0; i--) {
+        const anim = expandAnims[i];
+        const p = Math.min(1, (now2 - anim.startMs) / anim.duration);
+        const t2 = anim.toScale > anim.fromScale ? easeOutBackLocal(p) : easeIn(p);
+        const s = Math.max(0.0001, anim.fromScale + (anim.toScale - anim.fromScale) * t2);
+        anim.card.scale.setScalar(s);
+        
+        // Dynamically fly card closer to camera when expanded
+        const targetZ = anim.toScale > 0.01 ? 0.18 : 0.08;
+        const fromZ = anim.toScale > 0.01 ? 0.08 : 0.18;
+        anim.card.position.z = fromZ + (targetZ - fromZ) * t2;
+
+        if (p >= 1) expandAnims.splice(i, 1);
+      }
+
+
+      // glow pulses on every ring
+      glowPulses.forEach(({ mesh, base }, i) => {
+        mesh.material.opacity = base * (0.75 + 0.25 * Math.sin(t * 2.2 + i));
+      });
+
+      renderer.render(scene, camera);
+     } catch (frameErr) {
+       console.error('Render loop error:', frameErr);
+       debugLog('Render-Fehler: ' + (frameErr && frameErr.message ? frameErr.message : frameErr));
+       errEl.textContent = 'Laufzeitfehler in der AR-Szene: ' + (frameErr && frameErr.message ? frameErr.message : frameErr) +
+         ' — bitte Screenshot davon schicken.';
+       errEl.style.display = 'block';
+       startEl.style.display = 'flex';
+       renderer.setAnimationLoop(null);
+     }
+    });
+  } catch (e) {
+    debugLog('Start-Fehler: ' + (e && e.message ? e.message : e));
+    errEl.textContent = 'Kamera konnte nicht gestartet werden: ' + (e && e.message ? e.message : e) +
+      ' — bitte in Safari/Chrome direkt öffnen (nicht im In-App-Browser) und Kamerazugriff erlauben.';
+    errEl.style.display = 'block';
+  }
+});
+
+if (params.get('export') === 'true') {
+  setTimeout(() => {
+    debugLog('Direkter Auto-Export...');
+    document.getElementById('ed-export').click();
+  }, 2000);
+}
+</script>
+</body>
+</html>
