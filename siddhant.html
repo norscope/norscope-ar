@@ -63,6 +63,207 @@
 
   .pulse{animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+
+  /* ---- premium 2D modal overlays ---- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 7, 13, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 20px;
+  }
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-content {
+    background: linear-gradient(135deg, rgba(22, 34, 53, 0.94), rgba(8, 13, 22, 0.97));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 36px 28px 30px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    position: relative;
+    transform: translateY(30px) scale(0.96);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    color: #e2e8f0;
+  }
+  .modal-overlay.active .modal-content {
+    transform: translateY(0) scale(1);
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s, color 0.2s;
+  }
+  .modal-close:hover {
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+  }
+  .modal-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .modal-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    text-align: center;
+    color: #fff;
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+  .modal-accent-bar {
+    width: 60px;
+    height: 3px;
+    margin: 0 auto 16px;
+    border-radius: 2px;
+  }
+  .modal-tagline {
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.6;
+    text-align: center;
+    color: var(--theme-color, #cbd5e1);
+    margin-bottom: 24px;
+    padding: 0 10px;
+  }
+  .modal-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .modal-bullets li {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    position: relative;
+    padding-left: 24px;
+    color: #cbd5e1;
+  }
+  .modal-bullets li::before {
+    content: "•";
+    position: absolute;
+    left: 4px;
+    color: var(--theme-color, #00ffcc);
+    font-size: 20px;
+    line-height: 1;
+    top: -1px;
+  }
+
+  /* ---- profile specific styles ---- */
+  .profile-modal-content {
+    background: linear-gradient(135deg, rgba(22, 34, 53, 0.94), rgba(8, 13, 22, 0.97));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 28px;
+    padding: 40px 28px 32px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    position: relative;
+    transform: translateY(30px) scale(0.96);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: center;
+    color: #e2e8f0;
+  }
+  .modal-overlay.active .profile-modal-content {
+    transform: translateY(0) scale(1);
+  }
+  .profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .profile-avatar-container {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    border: 3px solid var(--theme-color, #00ffcc);
+    overflow: hidden;
+    margin-bottom: 16px;
+    background: #080d16;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .profile-avatar-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .profile-header h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .profile-header p {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--theme-color, #00ffcc);
+    font-weight: bold;
+  }
+  .profile-accent-bar {
+    width: 80px;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 auto 24px;
+  }
+  .profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .profile-actions .action-btn {
+    min-height: 56px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+    cursor: pointer;
+  }
+  .profile-actions .action-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--theme-color, #00ffcc);
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.15);
+  }
+  .profile-actions .action-btn .icon {
+    font-size: 20px;
+  }
 </style>
 </head>
 <body>
@@ -95,6 +296,43 @@
   <div class="row"><label>Größe</label><input type="range" id="ed-scl" min="0.4" max="2.2" step="0.02"><span class="v" id="val-scl">1</span></div>
   <button id="ed-export">Werte anzeigen / kopieren</button>
   <textarea id="ed-out" readonly></textarea>
+</div>
+
+<!-- Feature Card Modal -->
+<div id="feature-modal" class="modal-overlay">
+  <div class="modal-content">
+    <button class="modal-close" id="feat-close-btn">&times;</button>
+    <div class="modal-icon" id="feat-icon">◈</div>
+    <h2 class="modal-title" id="feat-title">Title</h2>
+    <div class="modal-accent-bar" id="feat-bar"></div>
+    <p class="modal-tagline" id="feat-tagline">Tagline</p>
+    <ul class="modal-bullets" id="feat-bullets"></ul>
+  </div>
+</div>
+
+<!-- Profile Card Modal -->
+<div id="profile-modal" class="modal-overlay">
+  <div class="profile-modal-content">
+    <button class="modal-close" id="prof-close-btn">&times;</button>
+    <div class="profile-header">
+      <div class="profile-avatar-container" id="prof-avatar-border">
+        <img id="prof-img" src="" alt="Photo">
+      </div>
+      <h2 id="prof-name">Name</h2>
+      <p id="prof-role">Role</p>
+    </div>
+    <div class="profile-accent-bar"></div>
+    <div class="profile-actions">
+      <a id="prof-phone-btn" class="action-btn" href="">
+        <span class="icon">📞</span>
+        <span class="label">Anrufen</span>
+      </a>
+      <a id="prof-email-btn" class="action-btn" href="">
+        <span class="icon">✉</span>
+        <span class="label">E-Mail schreiben</span>
+      </a>
+    </div>
+  </div>
 </div>
 
 <script type="importmap">
@@ -835,24 +1073,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(g);
     billboards.push(g);
 
-    // Profile card — added directly to flat and registered as a billboard
-    let avatarCanvas;
-    try {
-      avatarCanvas = await loadImage(photoUrl);
-    } catch (err) {
-      console.warn("Could not load photo, falling back to placeholder:", err);
-      avatarCanvas = makeAvatarPlaceholder(accentHex);
-    }
-    const profileCard = makeProfileCard(name, role, phone, email, accentHex, avatarCanvas);
-    flat.add(profileCard);
-    billboards.push(profileCard);
-
-    // Position profile card on opposite side of the card (since xPos is positive, cardX will be -0.16)
-    const cardX = xPos < 0 ? 0.16 : -0.16;
-    profileCard.position.set(cardX, 0.05, 0.08);
-    profileCard.scale.setScalar(0.0001); // hidden initially
-
-    return { group: g, profileCard, ring, accentHex };
+    return { group: g, ring, accentHex };
   }
 
   const siddhantData = await buildAvatarGroup(
@@ -865,13 +1086,77 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const siddhantGroup = siddhantData.group;
 
   // ---- Tap-to-Expand system ----
-  // expandedItem: null | 'siddhant' | 'headset' | 'feature0' | 'feature1' | 'feature2'
+  // expandedItem: null | 'sara' | 'headset' | 'feature0' | 'feature1' | 'feature2'
+  // ---- Modal functions ----
+  function showFeatureModal(idx) {
+    const feat = FEATURES[idx];
+    document.getElementById('feat-icon').innerText = feat.icon;
+    document.getElementById('feat-title').innerText = feat.title;
+    document.getElementById('feat-tagline').innerText = feat.sub;
+    document.getElementById('feat-bar').style.background = feat.color;
+    
+    const bulletsList = document.getElementById('feat-bullets');
+    bulletsList.innerHTML = '';
+    feat.bullets.forEach(b => {
+      const li = document.createElement('li');
+      li.innerText = b;
+      bulletsList.appendChild(li);
+    });
+    
+    const modal = document.getElementById('feature-modal');
+    modal.style.setProperty('--theme-color', feat.color);
+    modal.classList.add('active');
+  }
+
+  function showProfileModal(name, role, phone, email, photoUrl, accentColor) {
+    document.getElementById('prof-name').innerText = name;
+    document.getElementById('prof-role').innerText = role;
+    document.getElementById('prof-img').src = photoUrl;
+    document.getElementById('prof-avatar-border').style.borderColor = accentColor;
+    document.getElementById('prof-role').style.color = accentColor;
+    
+    const phoneBtn = document.getElementById('prof-phone-btn');
+    phoneBtn.href = 'tel:' + phone.replace(/\s+/g, '');
+    phoneBtn.style.setProperty('--theme-color', accentColor);
+    
+    const emailBtn = document.getElementById('prof-email-btn');
+    emailBtn.href = 'mailto:' + email + '?subject=Kontakt%20Norscope';
+    emailBtn.style.setProperty('--theme-color', accentColor);
+    
+    const modal = document.getElementById('profile-modal');
+    modal.style.setProperty('--theme-color', accentColor);
+    
+    const rgb = accentColor === '#00ffcc' ? '0, 255, 204' : '192, 132, 252';
+    modal.style.setProperty('--theme-color-rgb', rgb);
+    
+    modal.classList.add('active');
+  }
+
+  // Setup modal close events
+  document.getElementById('feat-close-btn').addEventListener('click', () => {
+    document.getElementById('feature-modal').classList.remove('active');
+  });
+  document.getElementById('feature-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'feature-modal') {
+      document.getElementById('feature-modal').classList.remove('active');
+    }
+  });
+  document.getElementById('prof-close-btn').addEventListener('click', () => {
+    document.getElementById('profile-modal').classList.remove('active');
+  });
+  document.getElementById('profile-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'profile-modal') {
+      document.getElementById('profile-modal').classList.remove('active');
+    }
+  });
+
+  // ---- Tap-to-Expand system ----
+  // expandedItem: null | 'headset'
   let expandedItem = null;
   const EXPAND_DURATION = 380;   // ms
   const expandAnims = [];        // {card, fromScale, toScale, startMs, duration}
 
   function startExpandAnim(card, toScale, duration) {
-    // remove any existing anim for this card
     const idx = expandAnims.findIndex(a => a.card === card);
     if (idx !== -1) expandAnims.splice(idx, 1);
     expandAnims.push({ card, fromScale: card.scale.x, toScale, startMs: performance.now(), duration });
@@ -879,18 +1164,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   function openProfile(which) {
     const isReopening = (expandedItem === which);
-    // Close whatever is open
-    if (expandedItem === 'siddhant') startExpandAnim(siddhantData.profileCard, 0.0001, 200);
     if (isReopening) { expandedItem = null; return; }
-    // Open the new one
     expandedItem = which;
-    if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 2.2, EXPAND_DURATION);
   }
 
   function handleTap(clientX, clientY, targetEl) {
-    // Prevent raycasting if clicking on start overlay or editor panel
-    if (targetEl && (targetEl.closest('#editor') || targetEl.closest('#start'))) {
-      debugLog('Ignoriere Tap im Editor/Start-Overlay');
+    // Prevent raycasting if clicking on start overlay, editor panel or any 2D modal
+    if (targetEl && (
+      targetEl.closest('#editor') || 
+      targetEl.closest('#start') || 
+      targetEl.closest('#feature-modal') || 
+      targetEl.closest('#profile-modal')
+    )) {
       return;
     }
 
@@ -898,27 +1183,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     if (!ctaArmed) return;
     if (editTarget !== null) return;
 
-    // Use window dimensions for robust raycast NDC calculation
     pointer.x = (clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-
-    // Raycast check for active profile cards first (so clicks on contact info are processed)
-    if (expandedItem === 'siddhant') {
-      const hitsSiddhantCard = raycaster.intersectObject(siddhantData.profileCard, true);
-      if (hitsSiddhantCard.length > 0) {
-        const uv = hitsSiddhantCard[0].uv;
-        debugLog(`Siddhant-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
-        if (uv.y >= 0.15 && uv.y < 0.29) {
-          window.location.href = 'mailto:siddhant.jude.rebello@tu-clausthal.de?subject=Kontakt%20Norscope';
-        } else if (uv.y >= 0.29 && uv.y < 0.43) {
-          window.location.href = 'tel:+4915510350105';
-        } else {
-          openProfile('siddhant');
-        }
-        return;
-      }
-    }
 
     const hitsLogo = raycaster.intersectObject(logoGroup, true);
     const hitsCTA = raycaster.intersectObject(ctaGroup, true);
@@ -958,18 +1225,32 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     }
     // Siddhant avatar
     if (hitsSiddhant.length > 0) {
-      debugLog('Tapped Siddhant -> Focus Siddhant');
-      openProfile('siddhant');
+      debugLog('Tapped Siddhant -> Show 2D Profile Modal');
+      showProfileModal(
+        'Siddhant Rebello', 
+        'Co-Founder & CTO', 
+        '+49 1551 0350105', 
+        'siddhant.jude.rebello@tu-clausthal.de', 
+        './assets/Siddhant Rebello.png', 
+        '#c084fc'
+      );
+      // Brief visual pulse feedback on avatar model
+      siddhantGroup.scale.setScalar(siddhantGroup.scale.x * 1.12);
+      setTimeout(() => { siddhantGroup.scale.setScalar(siddhantGroup.scale.x / 1.12); }, 120);
       return;
     }
     // Feature card
     if (hitFeatureIdx !== -1) {
-      debugLog(`Tapped Feature ${hitFeatureIdx + 1} -> Focus Feature`);
-      openProfile(`feature${hitFeatureIdx}`);
+      debugLog(`Tapped Feature ${hitFeatureIdx + 1} -> Show 2D Feature Modal`);
+      showFeatureModal(hitFeatureIdx);
+      // Brief visual pulse feedback on feature card mesh
+      const fg = featureGroups[hitFeatureIdx];
+      fg.scale.setScalar(fg.scale.x * 1.12);
+      setTimeout(() => { fg.scale.setScalar(fg.scale.x / 1.12); }, 120);
       return;
     }
 
-    // Tapped empty space → close all
+    // Tapped empty space → close 3D headset zoom
     if (expandedItem !== null) {
       debugLog('Tapped ins Leere -> Schließe Focus');
       openProfile(expandedItem);
@@ -1004,7 +1285,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const EDITABLE = [
     { name: 'Headset (Hub)', obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
     { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
-    { name: 'Siddhant (Av)', obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
+    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
     ...featureGroups.map((fg, i) => ({ name: 'Feature ' + (i + 1), obj: fg, baseScale: baseScaleOf(fg) })),
   ];
   setupEditor(EDITABLE);
@@ -1302,8 +1583,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         featureGroups.forEach((fg, i) => {
           if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
         });
-        if (!isEditing(siddhantGroup))
-          siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
+        if (!isEditing(saraGroup))
+          saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
       }
 
       // CTA: stationary
@@ -1314,12 +1595,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // Smooth focus/unfocus scale and position transition for all elements
       if (revealT === null) {
         let activeGroup = null;
-        if (expandedItem === 'siddhant') activeGroup = siddhantGroup;
-        else if (expandedItem === 'headset') activeGroup = heroGroup;
-        else if (expandedItem && expandedItem.startsWith('feature')) {
-          const idx = parseInt(expandedItem.replace('feature', ''));
-          activeGroup = featureGroups[idx];
-        }
+        if (expandedItem === 'headset') activeGroup = heroGroup;
 
         entrances.forEach(e => {
           if (isEditing(e.obj)) return;
@@ -1334,11 +1610,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
               if (expandedItem === 'headset') {
                 targetScale = e.base * 2.5; // Zoom headset significantly
                 targetPos.set(0.00, 0.02, 0.20); // Center and fly closer to camera
-              } else if (expandedItem.startsWith('feature')) {
-                targetScale = e.base * 2.5; // Zoom triptych feature card
-                targetPos.set(0.00, 0.04, 0.22); // Center and fly closer to camera
-              } else if (expandedItem === 'siddhant') {
-                targetPos.set(0.24, 0.02, 0.05); // Move Siddhant slightly left/up to leave space
               }
             }
           }
