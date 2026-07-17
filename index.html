@@ -142,12 +142,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     imageTargetSrc: './assets/targets.mind',
     uiScanning: 'no',
     uiLoading: 'yes',
-    filterMinCF: 0.0001,
-    filterBeta: 0.001
+    filterMinCF: 1,        // official card demo values: rigid, glued-to-card
+    filterBeta: 10000      // tracking instead of laggy smoothing
   });
   const { renderer, scene, camera } = mindarThree;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
+  renderer.toneMapping = THREE.NoToneMapping;   // ACES crushed whites to gray
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x9098a4, 2.1));
@@ -195,6 +194,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const load = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+  // UI elements render UNLIT: pure vertex colors, no shading -> crisp like print
+  function makeUnlit(objRoot) {
+    objRoot.traverse((c) => {
+      if (c.isMesh) c.material = new THREE.MeshBasicMaterial({ vertexColors: true });
+    });
+    return objRoot;
+  }
 
   // ---- helper: soft glow ring (additive, no texture needed) ----
   function glowRing(radius, thickness, color, opacity) {
@@ -259,7 +265,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   flat.add(heroGroup);
 
   // ================= HERO: the pitch card — large, central, floating above the card =================
-  const pitch = (await load('./assets/norscope-pitch.glb')).scene;
+  const pitch = makeUnlit((await load('./assets/norscope-pitch.glb')).scene);
   const pbox = new THREE.Box3().setFromObject(pitch);
   const pc = pbox.getCenter(new THREE.Vector3());
   const pitchGroup = new THREE.Group();     // outer: yaws toward camera (billboard)
@@ -275,7 +281,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
 
   // ================= CTA button — below the pitch card =================
-  const cta = (await load('./assets/cta-button.glb')).scene;
+  const cta = makeUnlit((await load('./assets/cta-button.glb')).scene);
   const ctaGroup = new THREE.Group();       // outer: billboard yaw
   const ctaStand = new THREE.Group();
   ctaStand.rotation.x = Math.PI / 2;
@@ -284,7 +290,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaGroup.add(ctaStand);
   ctaGroup.position.set(0.0, -0.24, 0.005);   // front edge, closest to the viewer
   flat.add(ctaGroup);
-  billboards.push(ctaGroup);
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -340,12 +345,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // nameplate: billboarded so the name reads from every angle.
     // Inside g (which is rotX 90), the card normal is g's local +Y.
-    const stage = (await load(stageUrl)).scene;
+    const stage = makeUnlit((await load(stageUrl)).scene);
     const npYaw = new THREE.Group();
     stage.position.set(0, 0.022, 0.055);
     npYaw.add(stage);
     g.add(npYaw);
-    founderBillboards.push({ yaw: npYaw, holder: g });
 
     g.rotation.x = Math.PI / 2;                 // pop-up: stands out of the card
     g.position.set(x, y, 0.005);
@@ -365,26 +369,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(m);
     return m;
   }
-  contactShadow(0.16, 0.0, 0.10, 0.10);     // pitch
-  contactShadow(0.075, -0.34, -0.04, 0.12); // sara
-  contactShadow(0.075, 0.34, 0.02, 0.12);   // headset
-  contactShadow(0.10, 0.0, -0.24, 0.08);    // cta
-
-  // ---- ambient particles: slow-drifting blue motes above the card ----
-  const P = 70;
-  const ppos = new Float32Array(P * 3);
-  for (let i = 0; i < P; i++) {
-    ppos[i*3]   = (Math.random() - 0.5) * 1.0;
-    ppos[i*3+1] = (Math.random() - 0.5) * 0.66;
-    ppos[i*3+2] = 0.02 + Math.random() * 0.28;
-  }
-  const pgeo = new THREE.BufferGeometry();
-  pgeo.setAttribute('position', new THREE.BufferAttribute(ppos, 3));
-  const particles = new THREE.Points(pgeo, new THREE.PointsMaterial({
-    color: 0x0066cc, size: 0.006, transparent: true, opacity: 0.45,
-    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
-  }));
-  flat.add(particles);
+  contactShadow(0.16, 0.0, 0.10, 0.07);     // pitch
+  contactShadow(0.075, -0.34, -0.04, 0.09); // sara
+  contactShadow(0.075, 0.34, 0.02, 0.09);   // headset
+  contactShadow(0.10, 0.0, -0.24, 0.06);    // cta
 
   // ---- staged entrance: elements pop in one after another with overshoot ----
   const entrances = [
@@ -493,17 +481,16 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         if (allDone) revealT = null;
       }
 
-      // billboards: yaw toward the camera around the card normal
+      // pitch billboard: smoothly yaw toward the camera (readable from any side)
       camera.getWorldPosition(camWorld);
       flat.worldToLocal(camLocal.copy(camWorld));
       billboards.forEach(b => {
         const dx = camLocal.x - b.position.x, dy = camLocal.y - b.position.y;
-        b.rotation.z = Math.atan2(dx, -dy);
-      });
-      founderBillboards.forEach(({ yaw, holder }) => {
-        // inside the rotX(+90) founder frame the card normal is local +Y
-        const dx = camLocal.x - holder.position.x, dy = camLocal.y - holder.position.y;
-        yaw.rotation.y = Math.atan2(dx, -dy);
+        const target = Math.atan2(dx, -dy);
+        let d = target - b.rotation.z;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        b.rotation.z += d * 0.12;   // damped follow, no snapping
       });
 
       // headset: slow spin, floating accent (idle z-bob unless being edited)
