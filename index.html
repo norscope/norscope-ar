@@ -412,7 +412,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   // (editor state is declared early, right after the anchor — see above)
 
   function setupEditor(list) {
-    list.forEach(e => editBase.set(e.obj, { z: e.obj.position.z, scale: e.obj.scale.x }));
+    // Seed with each element's TRUE authored scale (list[i].baseScale, captured
+    // before the entrance animation zeroed it out) — not the live .scale.x,
+    // which at this point in execution is still 0.0001 (entrance hasn't run
+    // yet). Reading the live value here was the actual bug behind the
+    // invisible CTA button: its idle pulse used this stored value as a
+    // multiplier every frame, permanently collapsing it to near-zero size
+    // shortly after its entrance animation finished.
+    list.forEach(e => editBase.set(e.obj, { z: e.obj.position.z, scale: e.baseScale }));
     const $ = (id) => document.getElementById(id);
     const panel = $('editor');
     const sel = $('ed-sel');
@@ -508,26 +515,23 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       camSmoothWorld.y += (camWorld.y - camSmoothWorld.y) * 0.06;
       camSmoothWorld.z += (camWorld.z - camSmoothWorld.z) * 0.06;
 
+      // pitch card / CTA billboard: yaw toward the camera around the card
+      // normal, recomputed directly every frame (standard billboard technique
+      // — see e.g. opengl-tutorial.org/billboards). The camera SAMPLE is
+      // low-pass filtered above, which is where smoothing belongs; smoothing
+      // the resulting ANGLE too (as an earlier version did, with a deadzone)
+      // caused chatter and could leave a panel stuck near edge-on to the
+      // camera — i.e. invisible despite double-sided material.
       flat.worldToLocal(camLocal.copy(camSmoothWorld));
       billboards.forEach(b => {
         const dx = camLocal.x - b.position.x, dy = camLocal.y - b.position.y;
-        const target = Math.atan2(dx, -dy);
-        let d = target - b.rotation.z;
-        while (d > Math.PI) d -= 2 * Math.PI;
-        while (d < -Math.PI) d += 2 * Math.PI;
-        if (Math.abs(d) > 0.008) b.rotation.z += d * 0.08;   // deadzone + slow damping
+        b.rotation.z = Math.atan2(dx, -dy);
       });
 
-      // nameplate billboard: same idea, but computed in the founder group's
-      // OWN local frame (it carries the pop-up rotation), so it's correct
-      // regardless of how the card itself is oriented in the world.
+      // nameplate billboard: same idea, in the founder group's own local frame.
       founderBillboards.forEach(({ yaw, holder }) => {
         holder.worldToLocal(gLocal.copy(camSmoothWorld));
-        const target = Math.atan2(gLocal.x, gLocal.z);
-        let d = target - yaw.rotation.y;
-        while (d > Math.PI) d -= 2 * Math.PI;
-        while (d < -Math.PI) d += 2 * Math.PI;
-        if (Math.abs(d) > 0.008) yaw.rotation.y += d * 0.08;
+        yaw.rotation.y = Math.atan2(gLocal.x, gLocal.z);
       });
 
       // headset: slow spin, floating accent (idle z-bob unless being edited)
