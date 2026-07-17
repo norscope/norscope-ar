@@ -177,6 +177,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const founderBillboards = [];   // nameplates inside founder groups
   const camWorld = new THREE.Vector3();
   const camLocal = new THREE.Vector3();
+  const gLocal = new THREE.Vector3();
   const SCENE_SCALE = 1.0;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
@@ -194,10 +195,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const load = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
-  // UI elements render UNLIT: pure vertex colors, no shading -> crisp like print
+  // UI elements render UNLIT: pure vertex colors, no shading -> crisp like print.
+  // DoubleSide is deliberate: with the nested billboard/pop-up rotations, a sign
+  // error in the yaw math could otherwise point the front face away from the
+  // camera and make the whole panel vanish (exactly what happened before this
+  // fix) — double-sided geometry makes that entire failure mode impossible.
   function makeUnlit(objRoot) {
     objRoot.traverse((c) => {
-      if (c.isMesh) c.material = new THREE.MeshBasicMaterial({ vertexColors: true });
+      if (c.isMesh) c.material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
     });
     return objRoot;
   }
@@ -290,6 +295,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaGroup.add(ctaStand);
   ctaGroup.position.set(0.0, -0.24, 0.005);   // front edge, closest to the viewer
   flat.add(ctaGroup);
+  billboards.push(ctaGroup);
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -350,6 +356,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     stage.position.set(0, 0.022, 0.055);
     npYaw.add(stage);
     g.add(npYaw);
+    founderBillboards.push({ yaw: npYaw, holder: g });
 
     g.rotation.x = Math.PI / 2;                 // pop-up: stands out of the card
     g.position.set(x, y, 0.005);
@@ -381,17 +388,22 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     { obj: heroGroup,  delay: 340 },
     { obj: ctaGroup,   delay: 500 },
   ];
-  entrances.forEach(e => { e.base = e.obj.scale.x; e.obj.scale.setScalar(0.0001); });
+  // capture each object's authored scale BEFORE zeroing for the entrance
+  // animation — read after zeroing would always be 0.0001 (this fed a bug
+  // into the editor's scale slider baseline).
+  entrances.forEach(e => { e.base = e.obj.scale.x; });
+  entrances.forEach(e => { e.obj.scale.setScalar(0.0001); });
   function easeOutBack(p) { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
 
   // ================= EDITOR MODE — live positioning, like Adobe Aero =================
   // Registered elements the editor can move/rotate/scale. Base scale captured
   // so the scale slider is relative to each element's authored size.
+  const baseScaleOf = (obj) => entrances.find(e => e.obj === obj).base;
   const EDITABLE = [
-    { name: 'Pitch-Karte',   obj: pitchGroup,  baseScale: pitchGroup.scale.x },
-    { name: 'Sara (Avatar)', obj: saraGroup,   baseScale: saraGroup.scale.x },
-    { name: 'Headset',       obj: heroGroup,   baseScale: heroGroup.scale.x },
-    { name: 'Kontakt-Button',obj: ctaGroup,    baseScale: ctaGroup.scale.x },
+    { name: 'Pitch-Karte',   obj: pitchGroup,  baseScale: baseScaleOf(pitchGroup) },
+    { name: 'Sara (Avatar)', obj: saraGroup,   baseScale: baseScaleOf(saraGroup) },
+    { name: 'Headset',       obj: heroGroup,   baseScale: baseScaleOf(heroGroup) },
+    { name: 'Kontakt-Button',obj: ctaGroup,    baseScale: baseScaleOf(ctaGroup) },
   ];
   setupEditor(EDITABLE);
 
@@ -481,7 +493,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         if (allDone) revealT = null;
       }
 
-      // pitch billboard: smoothly yaw toward the camera (readable from any side)
+      // pitch card / CTA billboard: smoothly yaw toward the camera around the
+      // card normal — readable from every angle, whether the card is lying
+      // flat on a table or held up facing the viewer.
       camera.getWorldPosition(camWorld);
       flat.worldToLocal(camLocal.copy(camWorld));
       billboards.forEach(b => {
@@ -491,6 +505,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         while (d > Math.PI) d -= 2 * Math.PI;
         while (d < -Math.PI) d += 2 * Math.PI;
         b.rotation.z += d * 0.12;   // damped follow, no snapping
+      });
+
+      // nameplate billboard: same idea, but computed in the founder group's
+      // OWN local frame (it carries the pop-up rotation), so it's correct
+      // regardless of how the card itself is oriented in the world.
+      founderBillboards.forEach(({ yaw, holder }) => {
+        holder.worldToLocal(gLocal.copy(camWorld));
+        const target = Math.atan2(gLocal.x, gLocal.z);
+        let d = target - yaw.rotation.y;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        yaw.rotation.y += d * 0.12;
       });
 
       // headset: slow spin, floating accent (idle z-bob unless being edited)
