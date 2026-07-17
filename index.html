@@ -40,7 +40,7 @@
     text-align:center;pointer-events:none;}
   #debug{position:fixed;left:10px;top:10px;z-index:99;background:rgba(8,14,28,0.90);
     color:#00ffcc;font-family:monospace;font-size:10px;padding:10px;border:1px solid #00aaff;
-    border-radius:8px;pointer-events:none;max-width:280px;display:block;}
+    border-radius:8px;pointer-events:none;max-width:280px;display:none;}
   /* ---- editor mode ---- */
   #ed-toggle{position:fixed;top:14px;right:14px;z-index:30;width:44px;height:44px;
     border-radius:50%;border:none;background:#0066cc;color:#fff;font-size:20px;
@@ -347,9 +347,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   logoGroup.add(lockup);
   flat.add(logoGroup);
   billboards.push(logoGroup);
-  logoGroup.position.set(0.00, 0.38, 0.005);
+  logoGroup.position.set(0.00, 0.44, 0.005);
 
-  heroGroup.position.set(0.00, 0.02, 0.03);
+  heroGroup.position.set(0.00, -0.02, 0.03);
   heroGroup.scale.setScalar(1.00);
   flat.add(heroGroup);
   billboards.push(heroGroup);
@@ -357,16 +357,56 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   // ================= FEATURE CARDS — radiating from headset =================
   // 3 features arranged with exact spatial coordinates to prevent overlap
   const FEATURES = [
-    { title: 'EFFIZIENZ', desc: 'AR-Anleitungen direkt am Bauteil. Funktioniert komplett offline. Wartung automatisch dokumentiert.', icon: '◈', color: '#00aaff', x: -0.28, y: 0.16 },
-    { title: 'KNOW-HOW', desc: 'Neue Fachkräfte lernen direkt am Gerät. Erfahrungswissen bleibt im Unternehmen. Schulungszeit spürbar verkürzt.', icon: '◉', color: '#00ffcc', x: 0.00, y: 0.22 },
-    { title: 'COMPLIANCE', desc: 'Jeder Schritt lückenlos erfasst. Fälschungssicher archiviert. Bereit für DGUV- & Arbeitsschutz-Prüfungen.', icon: '◆', color: '#ffb700', x: 0.28, y: 0.16 },
+    { 
+      title: 'EFFIZIENZ', 
+      sub: 'Weniger Wartungsfehler. Weniger Reisekosten. Volle Dokumentation.',
+      bullets: [
+        'AR-Anleitungen direkt am Bauteil',
+        'Funktioniert komplett offline',
+        'Wartung automatisch dokumentiert'
+      ],
+      icon: '◈', color: '#00aaff', x: -0.35, y: 0.18 
+    },
+    { 
+      title: 'KNOW-HOW', 
+      sub: 'Wissen bleibt im Betrieb',
+      bullets: [
+        'Neue Fachkräfte lernen direkt am Gerät',
+        'Erfahrungswissen bleibt im Unternehmen',
+        'Schulungszeit spürbar verkürzt'
+      ],
+      icon: '◉', color: '#00ffcc', x: 0.00, y: 0.28 
+    },
+    { 
+      title: 'COMPLIANCE', 
+      sub: 'Immer prüfungsbereit',
+      bullets: [
+        'Jeder Schritt lückenlos erfasst',
+        'Fälschungssicher archiviert',
+        'Bereit für DGUV- & Arbeitsschutz-Prüfungen'
+      ],
+      icon: '◆', color: '#ffb700', x: 0.35, y: 0.18 
+    },
   ];
 
   const featureGroups = [];
   const connectorLines = [];   // glowing connector lines headset → card
 
+  // Contact shadow helper and registry
+  const shadowMeshes = [];
+  function contactShadow(radius, x, y, opacity) {
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 40),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
+    );
+    m.position.set(x, y, 0.002);
+    flat.add(m);
+    shadowMeshes.push({ mesh: m, baseOpacity: opacity });
+    return m;
+  }
+
   function makeFeatureCard(feat) {
-    const cw = 512, ch = 340;
+    const cw = 512, ch = 360;
     const fc = document.createElement('canvas');
     fc.width = cw; fc.height = ch;
     const ctx = fc.getContext('2d');
@@ -396,46 +436,74 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Icon
     ctx.fillStyle = feat.color;
-    ctx.font = 'bold 64px sans-serif';
+    ctx.font = 'bold 56px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(feat.icon, 56, 80);
+    ctx.fillText(feat.icon, 52, 70);
 
     // Title
     ctx.fillStyle = '#f0f8ff';
-    ctx.font = 'bold 46px sans-serif';
+    ctx.font = 'bold 42px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(feat.title, 100, 76);
+    ctx.fillText(feat.title, 96, 68);
 
     // Separator
     ctx.strokeStyle = feat.color;
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(24, 108);
-    ctx.lineTo(cw - 24, 108);
+    ctx.moveTo(24, 94);
+    ctx.lineTo(cw - 24, 94);
     ctx.stroke();
     ctx.globalAlpha = 1.0;
 
-    // Description (word-wrapped)
-    ctx.fillStyle = '#a8c0d6';
-    ctx.font = '38px sans-serif';
+    // Subtitle
+    ctx.fillStyle = feat.color;
+    ctx.font = 'italic bold 23px sans-serif';
     ctx.textAlign = 'left';
-    const words = feat.desc.split(' ');
-    let line = '', lines = [], x = 24, maxW = cw - 48;
-    words.forEach(w => {
-      const test = line + w + ' ';
-      if (ctx.measureText(test).width > maxW && line) { lines.push(line.trim()); line = w + ' '; }
-      else { line = test; }
+    ctx.fillText(feat.sub, 24, 128);
+
+    // Bullets
+    let startY = 164;
+    const lineH = 32;
+    const bulletIndent = 24;
+
+    feat.bullets.forEach(bText => {
+      // Draw bullet dot
+      ctx.fillStyle = feat.color;
+      ctx.font = '22px sans-serif';
+      ctx.fillText('•', 24, startY);
+
+      // Draw bullet text
+      ctx.fillStyle = '#a8c0d6';
+      ctx.font = '22px sans-serif';
+
+      const maxW = cw - 24 - 24 - bulletIndent; // 440px
+      const words = bText.split(' ');
+      let line = '';
+
+      words.forEach(w => {
+        const test = line + w + ' ';
+        if (ctx.measureText(test).width > maxW && line) {
+          ctx.fillText(line.trim(), 24 + bulletIndent, startY);
+          startY += lineH;
+          line = w + ' ';
+        } else {
+          line = test;
+        }
+      });
+      if (line.trim()) {
+        ctx.fillText(line.trim(), 24 + bulletIndent, startY);
+        startY += lineH;
+      }
+      startY += 8; // small gap between bullets
     });
-    if (line.trim()) lines.push(line.trim());
-    lines.forEach((l, i) => ctx.fillText(l, x, 164 + i * 52));
 
     const tex = new THREE.CanvasTexture(fc);
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
 
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.14), mat);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.148), mat);
     return plane;
   }
 
@@ -451,15 +519,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     fg.position.set(feat.x, feat.y, 0.005);
 
     // Contact shadow under card
-    const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(0.072, 40),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.08, depthWrite: false })
-    );
-    shadow.position.set(feat.x, feat.y, 0.001);
-    flat.add(shadow);
+    contactShadow(0.072, feat.x, feat.y, 0.08);
 
     // Glowing connector line: headset center → card
-    const origin = new THREE.Vector3(0.00, 0.02, 0.03);
+    const origin = new THREE.Vector3(0.00, -0.02, 0.03);
     const target = new THREE.Vector3(feat.x, feat.y, 0.005);
     const points = [origin, target];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -486,24 +549,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.34, 0.000);
+  ctaGroup.position.set(0.000, -0.32, 0.000);
   ctaGroup.rotation.y = 0.00;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
   billboards.push(ctaGroup);
 
   // Contact shadow under headset center and CTA
-  function contactShadow(radius, x, y, opacity) {
-    const m = new THREE.Mesh(
-      new THREE.CircleGeometry(radius, 40),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
-    );
-    m.position.set(x, y, 0.002);
-    flat.add(m);
-    return m;
-  }
-  contactShadow(0.14, 0.00, 0.02, 0.12);   // headset center
-  contactShadow(0.10, 0.00, -0.34, 0.06);  // CTA
+  contactShadow(0.14, 0.00, -0.02, 0.12);   // headset center
+  contactShadow(0.10, 0.00, -0.32, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -511,6 +565,30 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   // ================= AVATARS: Sara (left) + Siddhant (right) =================
   // Each avatar has: glow ring, 3D avatar model, name-chip canvas, profile-card canvas (hidden initially)
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = src;
+    });
+  }
+
+  function drawCoverImage(ctx, img, x, y, w, h) {
+    const imgRatio = img.width / img.height;
+    const targetRatio = w / h;
+    let sx = 0, sy = 0, sw = img.width, sh = img.height;
+    if (imgRatio > targetRatio) {
+      sw = img.height * targetRatio;
+      sx = (img.width - sw) / 2;
+    } else {
+      sh = img.width / targetRatio;
+      sy = (img.height - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
 
   function makeAvatarPlaceholder(accentColor) {
     // Silhouette circle: a simple gradient canvas standing in for a real photo
@@ -606,7 +684,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     ctx.beginPath();
     ctx.arc(cx2, cy2, r, 0, Math.PI*2);
     ctx.clip();
-    ctx.drawImage(avatarCanvas, cx2-r, cy2-r, r*2, r*2);
+    drawCoverImage(ctx, avatarCanvas, cx2-r, cy2-r, r*2, r*2);
     ctx.restore();
     // Ring around photo
     ctx.strokeStyle = accentColor;
@@ -662,7 +740,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const mixers = [];
 
-  async function buildAvatarGroup(avatarUrl, name, role, phone, email, accentHex, xPos) {
+  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos) {
     const g = new THREE.Group();
 
     // Glow ring at base
@@ -691,13 +769,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     chip.position.set(0, -0.02, 0.005);
     g.add(chip);
 
-    // Profile card — starts invisible (scale 0)
-    const avatarCanvas = makeAvatarPlaceholder(accentHex);
-    const profileCard = makeProfileCard(name, role, phone, email, accentHex, avatarCanvas);
-    profileCard.position.set(0, 0.18, 0.008);   // above avatar center
-    profileCard.scale.setScalar(0.0001);         // hidden initially
-    g.add(profileCard);
-
     // Contact shadow
     contactShadow(0.065, xPos, 0.00, 0.08);
 
@@ -707,20 +778,39 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(g);
     billboards.push(g);
 
+    // Profile card — added directly to flat and registered as a billboard
+    let avatarCanvas;
+    try {
+      avatarCanvas = await loadImage(photoUrl);
+    } catch (err) {
+      console.warn("Could not load photo, falling back to placeholder:", err);
+      avatarCanvas = makeAvatarPlaceholder(accentHex);
+    }
+    const profileCard = makeProfileCard(name, role, phone, email, accentHex, avatarCanvas);
+    flat.add(profileCard);
+    billboards.push(profileCard);
+
+    // Position profile card on opposite side of the card
+    const cardX = xPos < 0 ? 0.12 : -0.12;
+    profileCard.position.set(cardX, 0.05, 0.08);
+    profileCard.scale.setScalar(0.0001); // hidden initially
+
     return { group: g, profileCard, ring, accentHex };
   }
 
   const saraData = await buildAvatarGroup(
     './assets/sara-avatar.glb',
-    'Sara Bergmann', 'Co-Founderin & CEO',
-    '+49 160 000 0001', 'sara@norscope.com',
-    '#00ffcc', -0.44
+    './assets/Sara Sarvestani.PNG',
+    'Sara Sarvestani', 'Co-Founderin & CEO',
+    '+49 1525 2993422', 'sara.shafiei.sarvestani@tu-clausthal.de',
+    '#00ffcc', -0.52
   );
   const siddhantData = await buildAvatarGroup(
     './assets/siddhant-avatar.glb',
-    'Siddhant Jain', 'Co-Founder & CTO',
-    '+49 160 000 0002', 'siddhant@norscope.com',
-    '#c084fc', 0.44
+    './assets/Siddhant Rebello.png',
+    'Siddhant Rebello', 'Co-Founder & CTO',
+    '+49 1551 0350105', 'siddhant.jude.rebello@tu-clausthal.de',
+    '#c084fc', 0.52
   );
   const saraGroup = saraData.group;
   const siddhantGroup = siddhantData.group;
@@ -766,17 +856,59 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     pointer.y = -(clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
 
+    // Raycast check for active profile cards first (so clicks on contact info are processed)
+    if (expandedItem === 'sara') {
+      const hitsSaraCard = raycaster.intersectObject(saraData.profileCard, true);
+      if (hitsSaraCard.length > 0) {
+        const uv = hitsSaraCard[0].uv;
+        debugLog(`Sara-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
+        if (uv.y >= 0.17 && uv.y < 0.27) {
+          window.location.href = 'mailto:sara.shafiei.sarvestani@tu-clausthal.de?subject=Kontakt%20Norscope';
+        } else if (uv.y >= 0.27 && uv.y < 0.37) {
+          window.location.href = 'tel:+4915252993422';
+        } else {
+          openProfile('sara');
+        }
+        return;
+      }
+    }
+    if (expandedItem === 'siddhant') {
+      const hitsSiddhantCard = raycaster.intersectObject(siddhantData.profileCard, true);
+      if (hitsSiddhantCard.length > 0) {
+        const uv = hitsSiddhantCard[0].uv;
+        debugLog(`Siddhant-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
+        if (uv.y >= 0.17 && uv.y < 0.27) {
+          window.location.href = 'mailto:siddhant.jude.rebello@tu-clausthal.de?subject=Kontakt%20Norscope';
+        } else if (uv.y >= 0.27 && uv.y < 0.37) {
+          window.location.href = 'tel:+4915510350105';
+        } else {
+          openProfile('siddhant');
+        }
+        return;
+      }
+    }
+
     const hitsCTA = raycaster.intersectObject(ctaGroup, true);
     const hitsHero = raycaster.intersectObject(heroGroup, true);
     const hitsSara = raycaster.intersectObject(saraGroup, true);
     const hitsSiddhant = raycaster.intersectObject(siddhantGroup, true);
 
-    debugLog(`Treffer: CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Sara=${hitsSara.length}, Siddhant=${hitsSiddhant.length}`);
+    // Raycast against feature cards
+    let hitFeatureIdx = -1;
+    for (let i = 0; i < featureGroups.length; i++) {
+      const hitsFeat = raycaster.intersectObject(featureGroups[i], true);
+      if (hitsFeat.length > 0) {
+        hitFeatureIdx = i;
+        break;
+      }
+    }
+
+    debugLog(`Treffer: CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Sara=${hitsSara.length}, Siddhant=${hitsSiddhant.length}, Feature=${hitFeatureIdx !== -1}`);
 
     // CTA button
     if (hitsCTA.length > 0) {
       debugLog('Tapped CTA Button -> Weiterleitung');
-      window.location.href = 'https://www.norscope.com/#/contact';
+      window.location.href = 'mailto:contact@norscope.com?subject=Pilotprojekt%20Norscope%20AR';
       return;
     }
     // Headset hub
@@ -797,6 +929,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       openProfile('siddhant');
       return;
     }
+    // Feature card
+    if (hitFeatureIdx !== -1) {
+      debugLog(`Tapped Feature ${hitFeatureIdx + 1} -> Focus Feature`);
+      openProfile(`feature${hitFeatureIdx}`);
+      return;
+    }
+
     // Tapped empty space → close all
     if (expandedItem !== null) {
       debugLog('Tapped ins Leere -> Schließe Focus');
@@ -818,10 +957,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     { obj: siddhantGroup,      delay: 400 },
     ...featureGroups.map((fg, i) => ({ obj: fg, delay: 520 + i * 110 })),
   ];
-  // capture each object's authored scale BEFORE zeroing for the entrance
-  // animation — read after zeroing would always be 0.0001 (this fed a bug
-  // into the editor's scale slider baseline).
-  entrances.forEach(e => { e.base = e.obj.scale.x; });
+  // capture each object's authored scale and position BEFORE zeroing
+  entrances.forEach(e => {
+    e.base = e.obj.scale.x;
+    e.basePos = e.obj.position.clone();
+  });
   entrances.forEach(e => { e.obj.scale.setScalar(0.0001); });
   function easeOutBack(p) { const c = 1.70158; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
  
@@ -1123,45 +1263,70 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // headset: slow continuous spin
       headsetSpin.rotation.y = t * 0.45;
 
-      // gentle hover bob for the headset (only when not expanded)
-      if (!isEditing(heroGroup) && expandedItem !== 'headset') {
-        heroGroup.position.z = editBaseZ(heroGroup, 0.03) + Math.sin(t * 1.1) * 0.008;
+      // gentle hover bob (only when not expanded)
+      if (expandedItem === null) {
+        if (!isEditing(heroGroup)) {
+          heroGroup.position.z = editBaseZ(heroGroup, 0.03) + Math.sin(t * 1.1) * 0.008;
+        }
+        featureGroups.forEach((fg, i) => {
+          if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
+        });
+        if (!isEditing(saraGroup))
+          saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
+        if (!isEditing(siddhantGroup))
+          siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 1.8) * 0.006;
       }
-
-      // feature cards: gentle individual float
-      featureGroups.forEach((fg, i) => {
-        if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
-      });
-
-      // Avatar: gentle hover bob
-      if (!isEditing(saraGroup))
-        saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
-      if (!isEditing(siddhantGroup))
-        siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 1.8) * 0.006;
 
       // CTA: stationary
       if (!isEditing(ctaGroup) && revealT === null && expandedItem === null) {
         ctaGroup.scale.setScalar(editBaseScale(ctaGroup, 1.80));
       }
 
-      // Smooth focus/unfocus scale transition for all elements
+      // Smooth focus/unfocus scale and position transition for all elements
       if (revealT === null) {
-        const activeGroup = (expandedItem === 'sara') ? saraGroup :
-                            (expandedItem === 'siddhant') ? siddhantGroup :
-                            (expandedItem === 'headset') ? heroGroup : null;
+        let activeGroup = null;
+        if (expandedItem === 'sara') activeGroup = saraGroup;
+        else if (expandedItem === 'siddhant') activeGroup = siddhantGroup;
+        else if (expandedItem === 'headset') activeGroup = heroGroup;
+        else if (expandedItem && expandedItem.startsWith('feature')) {
+          const idx = parseInt(expandedItem.replace('feature', ''));
+          activeGroup = featureGroups[idx];
+        }
 
         entrances.forEach(e => {
           if (isEditing(e.obj)) return;
           let targetScale = e.base;
-          if (activeGroup !== null) {
+          let targetPos = e.basePos.clone();
+
+          if (expandedItem !== null) {
             if (e.obj !== activeGroup) {
               targetScale = 0.0001; // Hide other elements
-            } else if (expandedItem === 'headset') {
-              targetScale = e.base * 1.35; // Zoom headset
+            } else {
+              // Zoom active object
+              if (expandedItem === 'headset') {
+                targetScale = e.base * 1.5; // Zoom headset
+                targetPos.set(0.00, 0.02, 0.08); // Center headset slightly forward
+              } else if (expandedItem.startsWith('feature')) {
+                targetScale = e.base * 1.8; // Make focused feature card huge
+                targetPos.set(0.00, 0.08, 0.08); // Fly to center
+              } else if (expandedItem === 'sara') {
+                targetPos.set(-0.28, 0.02, 0.02); // Move Sara slightly right/up
+              } else if (expandedItem === 'siddhant') {
+                targetPos.set(0.28, 0.02, 0.02); // Move Siddhant slightly left/up
+              }
             }
           }
-          const rate = 10.0 * dt;
-          e.obj.scale.setScalar(THREE.MathUtils.lerp(e.obj.scale.x, targetScale, Math.min(1, rate)));
+          const sRate = 9.0 * dt;
+          e.obj.scale.setScalar(THREE.MathUtils.lerp(e.obj.scale.x, targetScale, Math.min(1, sRate)));
+
+          const pRate = 9.0 * dt;
+          e.obj.position.lerp(targetPos, Math.min(1, pRate));
+        });
+
+        // Fade shadows in Focus Mode
+        shadowMeshes.forEach(({ mesh, baseOpacity }) => {
+          const targetOpacity = (expandedItem !== null) ? 0.0 : baseOpacity;
+          mesh.material.opacity = THREE.MathUtils.lerp(mesh.material.opacity, targetOpacity, Math.min(1, 10.0 * dt));
         });
 
         // Fade connector lines
