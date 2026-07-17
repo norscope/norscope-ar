@@ -109,6 +109,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { MindARThree } from 'mindar-image-three';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 const startEl = document.getElementById('start');
 const errEl = document.getElementById('err');
@@ -116,12 +117,27 @@ const scanhint = document.getElementById('scanhint');
 const debugEl = document.getElementById('debug');
 let debugLines = [];
 let pitchStand;
+let exporting = false;
 function debugLog(line) {
   debugLines.push(line);
   if (debugLines.length > 7) debugLines.shift();
   debugEl.textContent = debugLines.join('\n');
+  fetch('/log', { method: 'POST', body: line }).catch(() => {});
 }
+window.addEventListener('error', (e) => {
+  debugLog('JS ERROR: ' + e.message + ' in ' + e.filename + ':' + e.lineno);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  debugLog('JS REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+});
 debugLog('Seite geladen: ' + new Date().toLocaleTimeString());
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('export') === 'true') {
+    setTimeout(() => {
+      document.getElementById('startBtn').click();
+    }, 500);
+  }
 
 // Any uncaught async failure (e.g. a missing .glb on the server) becomes a
 // visible message instead of a silent dead button.
@@ -614,12 +630,107 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       editBase.set(current.obj, { z: zVal, scale: s });
       $('val-scl').textContent = (+$('ed-scl').value).toFixed(2);
     });
-    $('ed-export').addEventListener('click', () => {
+    $('ed-export').addEventListener('click', async () => {
       const lines = list.map(e => {
         const p = e.obj.position, r = e.obj.rotation, sc = (e.obj.scale.x / e.baseScale);
         return `${e.name}: pos(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)})  rotY=${r.y.toFixed(2)}  scale=${sc.toFixed(2)}`;
       }).join('\n');
       $('ed-out').value = lines; $('ed-out').style.display = 'block'; $('ed-out').select();
+
+      // Trigger automatic GLB export and upload to /upload
+      exporting = true;
+      try {
+        debugLog('Starte GLB-Export...');
+        
+        // 1. Save original transforms
+        const saved = [
+          { obj: pitchGroup, pos: pitchGroup.position.clone(), rot: pitchGroup.rotation.clone(), scl: pitchGroup.scale.clone() },
+          { obj: ctaGroup, pos: ctaGroup.position.clone(), rot: ctaGroup.rotation.clone(), scl: ctaGroup.scale.clone() },
+          { obj: saraGroup, pos: saraGroup.position.clone(), rot: saraGroup.rotation.clone(), scl: saraGroup.scale.clone() },
+          { obj: siddhantGroup, pos: siddhantGroup.position.clone(), rot: siddhantGroup.rotation.clone(), scl: siddhantGroup.scale.clone() }
+        ];
+        
+        // 2. Set default static transforms matching user coordinates
+        pitchGroup.position.set(0.090, 0.500, 0.270);
+        pitchGroup.rotation.set(0, 0.22, 0);
+        pitchGroup.scale.setScalar(1.72);
+        
+        ctaGroup.position.set(0.000, -0.395, 0.000);
+        ctaGroup.rotation.set(0, 0.08, 0);
+        ctaGroup.scale.setScalar(1.84);
+        
+        saraGroup.position.set(-0.460, -0.040, 0.005);
+        saraGroup.rotation.set(Math.PI / 2, 0, 0);
+        saraGroup.scale.setScalar(1.38);
+        
+        siddhantGroup.position.set(0.700, 0.020, 0.005);
+        siddhantGroup.rotation.set(Math.PI / 2, 0, 0);
+        siddhantGroup.scale.setScalar(1.00);
+        
+        // Update matrix worlds so that exporter sees the new positions
+        pitchGroup.updateMatrixWorld(true);
+        ctaGroup.updateMatrixWorld(true);
+        saraGroup.updateMatrixWorld(true);
+        siddhantGroup.updateMatrixWorld(true);
+        
+        // 3. Create temp scene for export
+        const exportScene = new THREE.Scene();
+        exportScene.add(pitchGroup);
+        exportScene.add(ctaGroup);
+        exportScene.add(saraGroup);
+        exportScene.add(siddhantGroup);
+        
+        // 4. Run GLTFExporter
+        const exporter = new GLTFExporter();
+        exporter.parse(
+          exportScene,
+          async (glbBuffer) => {
+            // Restore groups to flat parent
+            saved.forEach(s => {
+              flat.add(s.obj);
+              s.obj.position.copy(s.pos);
+              s.obj.rotation.copy(s.rot);
+              s.obj.scale.copy(s.scl);
+              s.obj.updateMatrixWorld(true);
+            });
+            exporting = false;
+            
+            debugLog('Export erfolgreich: ' + glbBuffer.byteLength + ' Bytes');
+            
+            // Upload to Python server
+            try {
+              const blob = new Blob([glbBuffer], { type: 'application/octet-stream' });
+              const res = await fetch('/upload', {
+                method: 'POST',
+                body: blob
+              });
+              if (res.ok) {
+                debugLog('GLB erfolgreich hochgeladen!');
+              } else {
+                debugLog('Upload-Fehler: ' + res.statusText);
+              }
+            } catch (uploadErr) {
+              debugLog('Upload-Fehler: ' + uploadErr.message);
+            }
+          },
+          (parseErr) => {
+            // Restore groups to flat parent
+            saved.forEach(s => {
+              flat.add(s.obj);
+              s.obj.position.copy(s.pos);
+              s.obj.rotation.copy(s.rot);
+              s.obj.scale.copy(s.scl);
+              s.obj.updateMatrixWorld(true);
+            });
+            exporting = false;
+            debugLog('Export-Fehler: ' + parseErr.message);
+          },
+          { binary: true }
+        );
+      } catch (err) {
+        exporting = false;
+        debugLog('Export-Fehler: ' + err.message);
+      }
     });
     $('ed-toggle').addEventListener('click', () => {
       const open = panel.classList.toggle('open');
@@ -689,8 +800,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       }
     }
 
+
     renderer.setAnimationLoop(() => {
      try {
+      if (exporting) {
+        renderer.render(scene, camera);
+        return;
+      }
       const dt = clock.getDelta();
       const t = clock.elapsedTime;
       mixers.forEach(m => m.update(dt));
@@ -742,7 +858,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             + ' scl ' + anchorScale.x.toFixed(2) + ' rScl ' + root.scale.x.toFixed(3) + ' fin=' + finite);
         }
 
-        // ---- Billboard yaw (frontal facing) logic for registered elements ----
+        // ---- Billboard (frontal facing & keep upright) logic for registered elements ----
         camera.getWorldPosition(camWorld);
         if (!camSmoothInit) {
           camSmoothWorld.copy(camWorld);
@@ -751,15 +867,49 @@ document.getElementById('startBtn').addEventListener('click', async () => {
           camSmoothWorld.lerp(camWorld, 0.1); // smooth low-pass camera tracker
         }
         
-        // 1. Billboards in flat space (pitchGroup, ctaGroup, saraGroup, siddhantGroup)
-        // These yaw around the card normal (+Z) to always face the camera
+        const objWorldPos = new THREE.Vector3();
+        const zAxis = new THREE.Vector3();
+        const xAxis = new THREE.Vector3();
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const matrix = new THREE.Matrix4();
+        const targetQuat = new THREE.Quaternion();
+        const parentWorldQuat = new THREE.Quaternion();
+        const offsetQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+        
+        // 1. Billboards (pitchGroup, ctaGroup, saraGroup, siddhantGroup)
+        // These are kept upright relative to world UP and yawed to face the camera.
         billboards.forEach(b => {
-          flat.worldToLocal(camLocal.copy(camSmoothWorld));
-          const dx = camLocal.x - b.position.x;
-          const dy = camLocal.y - b.position.y;
-          // Apply camera yaw (avoid overriding if currently being edited in Aero)
           if (!isEditing(b)) {
-            b.rotation.z = Math.atan2(dy, dx) + Math.PI / 2;
+            // Get current billboard's world position
+            b.getWorldPosition(objWorldPos);
+            
+            // Calculate vector from billboard to smooth camera position
+            zAxis.subVectors(camSmoothWorld, objWorldPos);
+            
+            // Lock rotation to vertical axis by setting Y delta to 0 (cylindrical billboarding)
+            zAxis.y = 0;
+            zAxis.normalize();
+            
+            if (zAxis.lengthSq() === 0) {
+              zAxis.set(0, 0, 1);
+            }
+            
+            // Calculate horizontal X axis (worldUp x zAxis)
+            xAxis.crossVectors(worldUp, zAxis).normalize();
+            
+            // Create orthonormal basis rotation matrix
+            matrix.makeBasis(xAxis, worldUp, zAxis);
+            targetQuat.setFromRotationMatrix(matrix);
+            
+            // Apply X rotation offset only to groups whose child has the Math.PI/2 rotation
+            if (b === pitchGroup || b === ctaGroup) {
+              targetQuat.multiply(offsetQuat);
+            }
+            
+            // Convert to parent's local space
+            b.parent.getWorldQuaternion(parentWorldQuat);
+            parentWorldQuat.invert();
+            b.quaternion.copy(parentWorldQuat).multiply(targetQuat);
           }
         });
 
@@ -812,6 +962,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     errEl.style.display = 'block';
   }
 });
+
+if (params.get('export') === 'true') {
+  setTimeout(() => {
+    debugLog('Direkter Auto-Export...');
+    document.getElementById('ed-export').click();
+  }, 2000);
+}
 </script>
 </body>
 </html>
