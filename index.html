@@ -38,6 +38,10 @@
   /* ---- scanning hint ---- */
   #scanhint{position:fixed;left:0;right:0;bottom:40px;z-index:15;display:none;
     text-align:center;pointer-events:none;}
+  #debug{position:fixed;top:14px;left:14px;z-index:30;background:rgba(18,24,31,.85);
+    color:#4fd1c5;font-family:'IBM Plex Mono',monospace;font-size:10px;
+    padding:6px 9px;border:1px solid #33404d;max-width:220px;line-height:1.5;
+    white-space:pre-line;}
   /* ---- editor mode ---- */
   #ed-toggle{position:fixed;top:14px;right:14px;z-index:30;width:44px;height:44px;
     border-radius:50%;border:none;background:#0066cc;color:#fff;font-size:20px;
@@ -80,6 +84,7 @@
 </div>
 
 <div id="scanhint"><span class="pulse">KARTE VOR DIE KAMERA HALTEN</span></div>
+<div id="debug"></div>
 
 <button id="ed-toggle" title="Editor">✎</button>
 <div id="editor">
@@ -111,6 +116,14 @@ import { MindARThree } from 'mindar-image-three';
 const startEl = document.getElementById('start');
 const errEl = document.getElementById('err');
 const scanhint = document.getElementById('scanhint');
+const debugEl = document.getElementById('debug');
+let debugLines = [];
+function debugLog(line) {
+  debugLines.push(line);
+  if (debugLines.length > 7) debugLines.shift();
+  debugEl.textContent = debugLines.join('\n');
+}
+debugLog('Seite geladen: ' + new Date().toLocaleTimeString());
 
 // Any uncaught async failure (e.g. a missing .glb on the server) becomes a
 // visible message instead of a silent dead button.
@@ -119,13 +132,26 @@ window.addEventListener('unhandledrejection', (e) => {
   errEl.textContent = 'Fehler beim Laden: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) +
     ' — prüfe, ob alle Dateien im assets-Ordner auf GitHub liegen.';
   errEl.style.display = 'block';
+  debugLog('FEHLER: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
 });
+
+// Cache-busting: mind-ar's internal fetch of imageTargetSrc uses the plain
+// URL with no cache-control, so browsers/CDNs can serve a stale .mind file
+// independently of the page's own ?v=N. Appending a fresh timestamp here
+// makes that structurally impossible — every load requests a brand-new URL.
+const TARGETS_URL = './assets/targets.mind?v=' + Date.now();
 
 async function checkTargets() {
   try {
-    const r = await fetch('./assets/targets.mind', { method: 'HEAD' });
+    const r = await fetch(TARGETS_URL, { method: 'HEAD', cache: 'no-store' });
+    // Log the ACTUAL bytes the browser received for this exact request —
+    // this is the one fact that definitively confirms or rules out a stale
+    // cached .mind file, instead of guessing from symptoms.
+    const len = r.headers.get('content-length');
+    const age = r.headers.get('age');
+    debugLog('targets.mind: ' + (len ? len + ' bytes' : '?') + (age ? ' (age ' + age + 's)' : ' (frisch)'));
     return r.ok;
-  } catch { return false; }
+  } catch (e) { debugLog('targets.mind Fetch-Fehler: ' + e.message); return false; }
 }
 
 document.getElementById('startBtn').addEventListener('click', async () => {
@@ -139,7 +165,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const mindarThree = new MindARThree({
     container: document.getElementById('ar-container'),
-    imageTargetSrc: './assets/targets.mind',
+    imageTargetSrc: TARGETS_URL,
     uiScanning: 'no',
     uiLoading: 'yes',
     filterMinCF: 0.001,     // community-validated smooth values (aggressive
@@ -486,15 +512,23 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   // ================= reveal + idle animation =================
   let revealT = null;
+  let foundCount = 0;
   anchor.onTargetFound = () => {
+    foundCount++;
+    debugLog('✓ Ziel erkannt (#' + foundCount + ') ' + new Date().toLocaleTimeString());
     scanhint.style.display = 'none';
     revealT = performance.now();
     ctaArmed = true;
   };
-  anchor.onTargetLost = () => { scanhint.style.display = 'block'; ctaArmed = false; };
+  anchor.onTargetLost = () => {
+    debugLog('Ziel verloren ' + new Date().toLocaleTimeString());
+    scanhint.style.display = 'block'; ctaArmed = false;
+  };
 
   try {
+    debugLog('mindarThree.start() läuft...');
     await mindarThree.start();
+    debugLog('AR gestartet, Kamera läuft. Warte auf Ziel...');
     startEl.style.display = 'none';
     scanhint.style.display = 'block';
     const clock = new THREE.Clock();
@@ -594,6 +628,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       renderer.render(scene, camera);
      } catch (frameErr) {
        console.error('Render loop error:', frameErr);
+       debugLog('Render-Fehler: ' + (frameErr && frameErr.message ? frameErr.message : frameErr));
        errEl.textContent = 'Laufzeitfehler in der AR-Szene: ' + (frameErr && frameErr.message ? frameErr.message : frameErr) +
          ' — bitte Screenshot davon schicken.';
        errEl.style.display = 'block';
@@ -602,6 +637,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
      }
     });
   } catch (e) {
+    debugLog('Start-Fehler: ' + (e && e.message ? e.message : e));
     errEl.textContent = 'Kamera konnte nicht gestartet werden: ' + (e && e.message ? e.message : e) +
       ' — bitte in Safari/Chrome direkt öffnen (nicht im In-App-Browser) und Kamerazugriff erlauben.';
     errEl.style.display = 'block';
