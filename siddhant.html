@@ -392,7 +392,7 @@ window.addEventListener('unhandledrejection', (e) => {
 // URL with no cache-control, so browsers/CDNs can serve a stale .mind file
 // independently of the page's own ?v=N. Appending a fresh timestamp here
 // makes that structurally impossible — every load requests a brand-new URL.
-const TARGETS_URL = './assets/targets.mind?v=' + Date.now();
+const TARGETS_URL = './assets/Siddhant-targets.mind?v=' + Date.now();
 
 async function checkTargets() {
   try {
@@ -402,16 +402,16 @@ async function checkTargets() {
     // cached .mind file, instead of guessing from symptoms.
     const len = r.headers.get('content-length');
     const age = r.headers.get('age');
-    debugLog('targets.mind: ' + (len ? len + ' bytes' : '?') + (age ? ' (age ' + age + 's)' : ' (frisch)'));
+    debugLog('Siddhant-targets.mind: ' + (len ? len + ' bytes' : '?') + (age ? ' (age ' + age + 's)' : ' (frisch)'));
     return r.ok;
-  } catch (e) { debugLog('targets.mind Fetch-Fehler: ' + e.message); return false; }
+  } catch (e) { debugLog('Siddhant-targets.mind Fetch-Fehler: ' + e.message); return false; }
 }
 
 document.getElementById('startBtn').addEventListener('click', async () => {
   errEl.style.display = 'none';
 
   if (!(await checkTargets())) {
-    errEl.textContent = 'assets/targets.mind fehlt noch. Bitte das Tracking-Target kompilieren (siehe README, Schritt "Tracking-Target").';
+    errEl.textContent = 'assets/Siddhant-targets.mind fehlt noch. Bitte das Tracking-Target kompilieren (siehe README, Schritt "Tracking-Target").';
     errEl.style.display = 'block';
     return;
   }
