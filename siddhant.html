@@ -352,11 +352,16 @@ import { MindARThree } from 'mindar-image-three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 const startEl = document.getElementById('start');
+const startBtn = document.getElementById('startBtn');
 const errEl = document.getElementById('err');
 const scanhint = document.getElementById('scanhint');
 const debugEl = document.getElementById('debug');
 let debugLines = [];
 let exporting = false;
+// Prevent a second MindAR session (duplicate canvases / doubled AR content).
+// On phones, late rejections or frame errors used to re-show Start while the
+// first session was still alive — tapping Start again stacked a full copy.
+let arSessionState = 'idle'; // 'idle' | 'starting' | 'running'
 function debugLog(line) {
   debugLines.push(line);
   if (debugLines.length > 7) debugLines.shift();
@@ -374,18 +379,30 @@ debugLog('Seite geladen: ' + new Date().toLocaleTimeString());
   const params = new URLSearchParams(window.location.search);
   if (params.get('export') === 'true') {
     setTimeout(() => {
-      document.getElementById('startBtn').click();
+      startBtn.click();
     }, 500);
   }
 
 // Any uncaught async failure (e.g. a missing .glb on the server) becomes a
 // visible message instead of a silent dead button.
+// Important: once AR is starting/running, do NOT bring Start back — that is
+// what caused doubled AR elements after a few minutes on some phones.
 window.addEventListener('unhandledrejection', (e) => {
-  startEl.style.display = 'flex';
-  errEl.textContent = 'Fehler beim Laden: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) +
-    ' — prüfe, ob alle Dateien im assets-Ordner auf GitHub liegen.';
+  const msg = (e.reason && e.reason.message ? e.reason.message : e.reason);
+  debugLog('FEHLER: ' + msg);
+  errEl.textContent = 'Fehler: ' + msg +
+    (arSessionState === 'running'
+      ? ' — Seite neu laden, nicht erneut auf Start tippen.'
+      : ' — prüfe, ob alle Dateien im assets-Ordner auf GitHub liegen.');
   errEl.style.display = 'block';
-  debugLog('FEHLER: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  if (arSessionState === 'running') {
+    // Do not re-show Start — a second session would double all AR elements.
+    return;
+  }
+  // idle or starting (assets/setup failed before camera): safe to retry
+  arSessionState = 'idle';
+  startBtn.disabled = false;
+  startEl.style.display = 'flex';
 });
 
 // Cache-busting: mind-ar's internal fetch of imageTargetSrc uses the plain
@@ -408,9 +425,17 @@ async function checkTargets() {
 }
 
 document.getElementById('startBtn').addEventListener('click', async () => {
+  if (arSessionState !== 'idle') {
+    debugLog('Start ignoriert — AR-Session läuft bereits (' + arSessionState + ')');
+    return;
+  }
+  arSessionState = 'starting';
+  startBtn.disabled = true;
   errEl.style.display = 'none';
 
   if (!(await checkTargets())) {
+    arSessionState = 'idle';
+    startBtn.disabled = false;
     errEl.textContent = 'assets/Siddhant-targets.mind fehlt noch. Bitte das Tracking-Target kompilieren (siehe README, Schritt "Tracking-Target").';
     errEl.style.display = 'block';
     return;
@@ -1455,6 +1480,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   try {
     debugLog('mindarThree.start() läuft...');
     await mindarThree.start();
+    arSessionState = 'running';
     debugLog('AR gestartet, Kamera läuft. Warte auf Ziel...');
     startEl.style.display = 'none';
     scanhint.style.display = 'block';
@@ -1667,13 +1693,16 @@ document.getElementById('startBtn').addEventListener('click', async () => {
        console.error('Render loop error:', frameErr);
        debugLog('Render-Fehler: ' + (frameErr && frameErr.message ? frameErr.message : frameErr));
        errEl.textContent = 'Laufzeitfehler in der AR-Szene: ' + (frameErr && frameErr.message ? frameErr.message : frameErr) +
-         ' — bitte Screenshot davon schicken.';
+         ' — bitte Seite neu laden (nicht erneut Start tippen).';
        errEl.style.display = 'block';
-       startEl.style.display = 'flex';
+       // Keep Start hidden: re-opening it used to create a second MindAR
+       // session on top of this one and double every AR element.
        renderer.setAnimationLoop(null);
      }
     });
   } catch (e) {
+    arSessionState = 'idle';
+    startBtn.disabled = false;
     debugLog('Start-Fehler: ' + (e && e.message ? e.message : e));
     errEl.textContent = 'Kamera konnte nicht gestartet werden: ' + (e && e.message ? e.message : e) +
       ' — bitte in Safari/Chrome direkt öffnen (nicht im In-App-Browser) und Kamerazugriff erlauben.';
