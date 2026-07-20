@@ -1285,7 +1285,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const EDITABLE = [
     { name: 'Headset (Hub)', obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
     { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
-    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
+    { name: 'Siddhant (Avatar)', obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
     ...featureGroups.map((fg, i) => ({ name: 'Feature ' + (i + 1), obj: fg, baseScale: baseScaleOf(fg) })),
   ];
   setupEditor(EDITABLE);
@@ -1564,7 +1564,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         });
 
         // Avatar billboarding: same cylindrical system, with Math.PI/2 child offset
-        // (saraGroup and siddhantGroup are already in the billboards array)
+        // (siddhantGroup is already in the billboards array)
       } else {
         anchorSmoothInit = false;
         camSmoothInit = false;
@@ -1583,8 +1583,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         featureGroups.forEach((fg, i) => {
           if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
         });
-        if (!isEditing(saraGroup))
-          saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
+        if (!isEditing(siddhantGroup))
+          siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
       }
 
       // CTA: stationary
