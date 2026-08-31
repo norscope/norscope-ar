@@ -249,7 +249,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const anchorPos = new THREE.Vector3();
   const anchorQuat = new THREE.Quaternion();
   const anchorScale = new THREE.Vector3();
-  const SCENE_SCALE = 1.45;
+  const SCENE_SCALE = 1.85;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
   root.visible = false;
@@ -321,7 +321,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const hbox = new THREE.Box3().setFromObject(headset);
   const hc = hbox.getCenter(new THREE.Vector3());
   const hSize = hbox.max.x - hbox.min.x;
-  const hScale = 0.17 / hSize;   // central hero: 17 cm wide (slightly smaller to prevent overlap)
+  const hScale = 0.15 / hSize;   // central hero — keep modest so avatars read larger
   headset.scale.setScalar(hScale);
   headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
   headset.updateMatrixWorld(true);
@@ -374,7 +374,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   billboards.push(logoGroup);
   logoGroup.position.set(0.00, 0.44, 0.005);
 
-  heroGroup.position.set(0.00, -0.02, 0.03);
+  heroGroup.position.set(0.00, 0.10, 0.03);
   heroGroup.scale.setScalar(1.00);
   flat.add(heroGroup);
   billboards.push(heroGroup);
@@ -528,7 +528,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     tex.generateMipmaps = false;
 
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.148), mat);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.184), mat);
     return plane;
   }
 
@@ -547,7 +547,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     contactShadow(0.072, feat.x, feat.y, 0.08);
 
     // Glowing connector line: headset center → card
-    const origin = new THREE.Vector3(0.00, -0.02, 0.03);
+    const origin = new THREE.Vector3(0.00, 0.10, 0.03);
     const target = new THREE.Vector3(feat.x, feat.y, 0.005);
     const points = [origin, target];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -677,7 +677,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    return new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.035), mat);
+    return new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.042), mat);
   }
 
   function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
@@ -805,7 +805,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const mixers = [];
 
-  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos) {
+  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos = 0) {
     const g = new THREE.Group();
 
     // Glow ring at base
@@ -819,7 +819,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const avH = abox.max.y - abox.min.y;
-    const avS = 0.24 / avH;   // 24 cm tall (three founders across the card)
+    const avS = 0.34 / avH;   // 34 cm tall — readable beside the headset
     av.scale.setScalar(avS);
     av.position.set(0, -abox.min.y * avS, 0);
     g.add(av);
@@ -835,11 +835,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     g.add(chip);
 
     // Contact shadow
-    contactShadow(0.065, xPos, 0.00, 0.08);
+    contactShadow(0.085, xPos, yPos, 0.08);
 
     // Pop-up stand so group faces camera
     g.rotation.x = Math.PI / 2;
-    g.position.set(xPos, 0.00, 0.005);
+    g.position.set(xPos, yPos, 0.005);
     flat.add(g);
     billboards.push(g);
 
@@ -858,11 +858,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     // Position profile card away from the avatar column
     let cardX, cardY;
     if (xPos < -0.2) {
-      cardX = 0.12; cardY = 0.05;
+      cardX = 0.12; cardY = yPos + 0.05;
     } else if (xPos > 0.2) {
-      cardX = -0.12; cardY = 0.05;
+      cardX = -0.12; cardY = yPos + 0.05;
     } else {
-      cardX = 0.00; cardY = 0.14; // center founder: card above
+      cardX = 0.00; cardY = yPos + 0.14;
     }
     profileCard.position.set(cardX, cardY, 0.08);
     profileCard.scale.setScalar(0.0001); // hidden initially
@@ -880,8 +880,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '+49 1525 2993422',
       email: 'sara.shafiei.sarvestani@tu-clausthal.de',
       accent: '#00ffcc',
-      x: -0.58,
-      focusPos: new THREE.Vector3(-0.28, 0.02, 0.05),
+      x: -0.50,
+      y: -0.16,
+      focusPos: new THREE.Vector3(-0.28, -0.10, 0.05),
     },
     {
       id: 'wahib',
@@ -893,7 +894,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       email: 'contact@norscope.com',
       accent: '#ffb700',
       x: 0.00,
-      focusPos: new THREE.Vector3(0.00, 0.02, 0.05),
+      y: -0.38,
+      focusPos: new THREE.Vector3(0.00, -0.22, 0.05),
     },
     {
       id: 'siddhant',
@@ -904,15 +906,16 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '+49 1551 0350105',
       email: 'siddhant.jude.rebello@tu-clausthal.de',
       accent: '#c084fc',
-      x: 0.58,
-      focusPos: new THREE.Vector3(0.28, 0.02, 0.05),
+      x: 0.50,
+      y: -0.16,
+      focusPos: new THREE.Vector3(0.28, -0.10, 0.05),
     },
   ];
 
   const founderData = {};
   for (const f of FOUNDERS) {
     const built = await buildAvatarGroup(
-      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x
+      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x, f.y
     );
     founderData[f.id] = { ...built, meta: f };
   }
@@ -1001,10 +1004,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       window.location.href = 'https://www.norscope.com/#/contact';
       return;
     }
-    // Headset hub
+    // Headset hub — no tap-to-zoom (headset stays fixed size)
     if (hitsHero.length > 0) {
-      debugLog('Tapped Headset -> Focus Headset');
-      openProfile('headset');
+      debugLog('Tapped Headset — zoom disabled');
       return;
     }
     for (const fh of founderHits) {
@@ -1100,7 +1102,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     function select(i) {
       current = list[i];
       editTarget = current.obj;
-      // Do not overwrite editBase here to prevent capturing active Z-bob or scale pulse.
+      $('ed-scl').max = (current.obj === heroGroup) ? '1' : '2.2';
       syncFrom(current);
     }
     sel.addEventListener('change', () => select(+sel.value));
@@ -1115,7 +1117,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     });
     $('ed-rot').addEventListener('input', () => { current.obj.rotation.y = +$('ed-rot').value; $('val-rot').textContent = (+$('ed-rot').value).toFixed(2); });
     $('ed-scl').addEventListener('input', () => {
-      const s = +$('ed-scl').value * current.baseScale;
+      let mult = +$('ed-scl').value;
+      if (current.obj === heroGroup) mult = Math.min(mult, 1.0);
+      const s = mult * current.baseScale;
       current.obj.scale.setScalar(s);
       const existing = editBase.get(current.obj);
       const zVal = existing ? existing.z : current.obj.position.z;
@@ -1377,7 +1381,6 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         let activeGroup = null;
         const activeFounder = FOUNDERS.find(f => f.id === expandedItem);
         if (activeFounder) activeGroup = founderData[activeFounder.id].group;
-        else if (expandedItem === 'headset') activeGroup = heroGroup;
         else if (expandedItem && expandedItem.startsWith('feature')) {
           const idx = parseInt(expandedItem.replace('feature', ''));
           activeGroup = featureGroups[idx];
@@ -1392,14 +1395,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             if (e.obj !== activeGroup) {
               targetScale = 0.0001; // Hide other elements
             } else {
-              // Zoom active object
-              if (expandedItem === 'headset') {
-                targetScale = e.base * 2.5; // Zoom headset significantly
-                targetPos.set(0.00, 0.02, 0.20); // Center and fly closer to camera
-              } else if (expandedItem.startsWith('feature')) {
-                targetScale = e.base * 3.4; // Make focused feature card massive
-                targetPos.set(0.00, 0.08, 0.24); // Center and fly closest to camera for perfect reading
+              // Zoom active object (headset excluded — no tap focus)
+              if (expandedItem.startsWith('feature')) {
+                targetScale = e.base * 3.4;
+                targetPos.set(0.00, 0.08, 0.24);
               } else if (activeFounder) {
+                targetScale = e.base * 1.35;
                 targetPos.copy(activeFounder.focusPos);
               }
             }
