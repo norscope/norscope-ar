@@ -74,7 +74,7 @@
   <div class="tag">AR-Erlebnis</div>
   <p class="hint">
     Kamera erlauben und auf die <b>Rückseite der Norscope-Karte</b> richten.
-    Die Karte am besten flach hinlegen. Das Headset, die Founder-Avatare
+    Die Karte am besten flach hinlegen. Das Headset, die drei Founder-Avatare
     und Feature-Cards erscheinen direkt auf der Karte. <b>Tippe auf einen Avatar</b> um sein Profil zu sehen.
   </p>
   <button id="startBtn">Start</button>
@@ -588,7 +588,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const pointer = new THREE.Vector2();
   let ctaArmed = false;
 
-  // ================= AVATARS: Sara (left) + Siddhant (right) =================
+  // ================= AVATARS: Sara + Wahib + Siddhant =================
   // Each avatar has: glow ring, 3D avatar model, name-chip canvas, profile-card canvas (hidden initially)
 
   function loadImage(src) {
@@ -819,7 +819,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const avH = abox.max.y - abox.min.y;
-    const avS = 0.28 / avH;   // 28 cm tall
+    const avS = 0.24 / avH;   // 24 cm tall (three founders across the card)
     av.scale.setScalar(avS);
     av.position.set(0, -abox.min.y * avS, 0);
     g.add(av);
@@ -855,33 +855,70 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     flat.add(profileCard);
     billboards.push(profileCard);
 
-    // Position profile card on opposite side of the card
-    const cardX = xPos < 0 ? 0.12 : -0.12;
-    profileCard.position.set(cardX, 0.05, 0.08);
+    // Position profile card away from the avatar column
+    let cardX, cardY;
+    if (xPos < -0.2) {
+      cardX = 0.12; cardY = 0.05;
+    } else if (xPos > 0.2) {
+      cardX = -0.12; cardY = 0.05;
+    } else {
+      cardX = 0.00; cardY = 0.14; // center founder: card above
+    }
+    profileCard.position.set(cardX, cardY, 0.08);
     profileCard.scale.setScalar(0.0001); // hidden initially
 
     return { group: g, profileCard, ring, accentHex };
   }
 
-  const saraData = await buildAvatarGroup(
-    './assets/sara-avatar.glb',
-    './assets/Sara Sarvestani.PNG',
-    'Sara Sarvestani', 'Co-Founderin & CEO',
-    '+49 1525 2993422', 'sara.shafiei.sarvestani@tu-clausthal.de',
-    '#00ffcc', -0.52
-  );
-  const siddhantData = await buildAvatarGroup(
-    './assets/siddhant-avatar.glb',
-    './assets/Siddhant Rebello.png',
-    'Siddhant Rebello', 'Co-Founder & CTO',
-    '+49 1551 0350105', 'siddhant.jude.rebello@tu-clausthal.de',
-    '#c084fc', 0.52
-  );
-  const saraGroup = saraData.group;
-  const siddhantGroup = siddhantData.group;
+  const FOUNDERS = [
+    {
+      id: 'sara',
+      avatarUrl: './assets/sara-avatar.glb',
+      photoUrl: './assets/Sara Sarvestani.PNG',
+      name: 'Sara Sarvestani',
+      role: 'Co-Founderin & CEO',
+      phone: '+49 1525 2993422',
+      email: 'sara.shafiei.sarvestani@tu-clausthal.de',
+      accent: '#00ffcc',
+      x: -0.58,
+      focusPos: new THREE.Vector3(-0.28, 0.02, 0.05),
+    },
+    {
+      id: 'wahib',
+      avatarUrl: './assets/wahib-avatar.glb',
+      photoUrl: './assets/Wahib Farhat.png',
+      name: 'Wahib Farhat',
+      role: 'Co-Founder',
+      phone: '',
+      email: 'contact@norscope.com',
+      accent: '#ffb700',
+      x: 0.00,
+      focusPos: new THREE.Vector3(0.00, 0.02, 0.05),
+    },
+    {
+      id: 'siddhant',
+      avatarUrl: './assets/siddhant-avatar.glb',
+      photoUrl: './assets/Siddhant Rebello.png',
+      name: 'Siddhant Rebello',
+      role: 'Co-Founder & CTO',
+      phone: '+49 1551 0350105',
+      email: 'siddhant.jude.rebello@tu-clausthal.de',
+      accent: '#c084fc',
+      x: 0.58,
+      focusPos: new THREE.Vector3(0.28, 0.02, 0.05),
+    },
+  ];
+
+  const founderData = {};
+  for (const f of FOUNDERS) {
+    const built = await buildAvatarGroup(
+      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x
+    );
+    founderData[f.id] = { ...built, meta: f };
+  }
 
   // ---- Tap-to-Expand system ----
-  // expandedItem: null | 'sara' | 'siddhant' | 'headset'
+  // expandedItem: null | founder id | 'headset' | 'featureN'
   let expandedItem = null;
   const EXPAND_DURATION = 380;   // ms
   const expandAnims = [];        // {card, fromScale, toScale, startMs, duration}
@@ -895,14 +932,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   function openProfile(which) {
     const isReopening = (expandedItem === which);
-    // Close whatever is open
-    if (expandedItem === 'sara') startExpandAnim(saraData.profileCard, 0.0001, 200);
-    if (expandedItem === 'siddhant') startExpandAnim(siddhantData.profileCard, 0.0001, 200);
+    for (const f of FOUNDERS) {
+      startExpandAnim(founderData[f.id].profileCard, 0.0001, 200);
+    }
     if (isReopening) { expandedItem = null; return; }
-    // Open the new one
     expandedItem = which;
-    if (which === 'sara') startExpandAnim(saraData.profileCard, 2.2, EXPAND_DURATION);
-    if (which === 'siddhant') startExpandAnim(siddhantData.profileCard, 2.2, EXPAND_DURATION);
+    if (founderData[which]) {
+      startExpandAnim(founderData[which].profileCard, 2.2, EXPAND_DURATION);
+    }
   }
 
   function handleTap(clientX, clientY, targetEl) {
@@ -922,32 +959,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     raycaster.setFromCamera(pointer, camera);
 
     // Raycast check for active profile cards first (so clicks on contact info are processed)
-    if (expandedItem === 'sara') {
-      const hitsSaraCard = raycaster.intersectObject(saraData.profileCard, true);
-      if (hitsSaraCard.length > 0) {
-        const uv = hitsSaraCard[0].uv;
-        debugLog(`Sara-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
-        if (uv.y >= 0.15 && uv.y < 0.29) {
-          window.location.href = 'mailto:sara.shafiei.sarvestani@tu-clausthal.de?subject=Kontakt%20Norscope';
-        } else if (uv.y >= 0.29 && uv.y < 0.43) {
-          window.location.href = 'tel:+4915252993422';
+    for (const f of FOUNDERS) {
+      if (expandedItem !== f.id) continue;
+      const hitsCard = raycaster.intersectObject(founderData[f.id].profileCard, true);
+      if (hitsCard.length > 0) {
+        const uv = hitsCard[0].uv;
+        debugLog(`${f.name}-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
+        if (uv.y >= 0.15 && uv.y < 0.29 && f.email) {
+          window.location.href = `mailto:${f.email}?subject=Kontakt%20Norscope`;
+        } else if (uv.y >= 0.29 && uv.y < 0.43 && f.phone) {
+          window.location.href = `tel:${f.phone.replace(/\s/g, '')}`;
         } else {
-          openProfile('sara');
-        }
-        return;
-      }
-    }
-    if (expandedItem === 'siddhant') {
-      const hitsSiddhantCard = raycaster.intersectObject(siddhantData.profileCard, true);
-      if (hitsSiddhantCard.length > 0) {
-        const uv = hitsSiddhantCard[0].uv;
-        debugLog(`Siddhant-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
-        if (uv.y >= 0.15 && uv.y < 0.29) {
-          window.location.href = 'mailto:siddhant.jude.rebello@tu-clausthal.de?subject=Kontakt%20Norscope';
-        } else if (uv.y >= 0.29 && uv.y < 0.43) {
-          window.location.href = 'tel:+4915510350105';
-        } else {
-          openProfile('siddhant');
+          openProfile(f.id);
         }
         return;
       }
@@ -955,8 +978,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     const hitsCTA = raycaster.intersectObject(ctaGroup, true);
     const hitsHero = raycaster.intersectObject(heroGroup, true);
-    const hitsSara = raycaster.intersectObject(saraGroup, true);
-    const hitsSiddhant = raycaster.intersectObject(siddhantGroup, true);
+    const founderHits = FOUNDERS.map(f => ({
+      id: f.id,
+      hits: raycaster.intersectObject(founderData[f.id].group, true).length,
+    }));
 
     // Raycast against feature cards
     let hitFeatureIdx = -1;
@@ -968,7 +993,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       }
     }
 
-    debugLog(`Treffer: CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Sara=${hitsSara.length}, Siddhant=${hitsSiddhant.length}, Feature=${hitFeatureIdx !== -1}`);
+    debugLog(`Treffer: CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Founder=${founderHits.map(h => h.id + ':' + h.hits).join(', ')}, Feature=${hitFeatureIdx !== -1}`);
 
     // CTA button
     if (hitsCTA.length > 0) {
@@ -982,17 +1007,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       openProfile('headset');
       return;
     }
-    // Sara avatar
-    if (hitsSara.length > 0) {
-      debugLog('Tapped Sara -> Focus Sara');
-      openProfile('sara');
-      return;
-    }
-    // Siddhant avatar
-    if (hitsSiddhant.length > 0) {
-      debugLog('Tapped Siddhant -> Focus Siddhant');
-      openProfile('siddhant');
-      return;
+    for (const fh of founderHits) {
+      if (fh.hits > 0) {
+        debugLog(`Tapped ${fh.id} -> Focus ${fh.id}`);
+        openProfile(fh.id);
+        return;
+      }
     }
     // Feature card
     if (hitFeatureIdx !== -1) {
@@ -1018,9 +1038,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const entrances = [
     { obj: heroGroup,          delay: 0 },
     { obj: ctaGroup,           delay: 150 },
-    { obj: saraGroup,          delay: 280 },
-    { obj: siddhantGroup,      delay: 400 },
-    ...featureGroups.map((fg, i) => ({ obj: fg, delay: 520 + i * 110 })),
+    ...FOUNDERS.map((f, i) => ({ obj: founderData[f.id].group, delay: 280 + i * 110 })),
+    ...featureGroups.map((fg, i) => ({ obj: fg, delay: 520 + FOUNDERS.length * 110 + i * 110 })),
   ];
   // capture each object's authored scale and position BEFORE zeroing
   entrances.forEach(e => {
@@ -1037,8 +1056,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const EDITABLE = [
     { name: 'Headset (Hub)', obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
     { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
-    { name: 'Sara (Avatar)', obj: saraGroup,     baseScale: baseScaleOf(saraGroup) },
-    { name: 'Siddhant (Av)',  obj: siddhantGroup, baseScale: baseScaleOf(siddhantGroup) },
+    ...FOUNDERS.map(f => ({
+      name: `${f.name.split(' ')[0]} (Avatar)`,
+      obj: founderData[f.id].group,
+      baseScale: baseScaleOf(founderData[f.id].group),
+    })),
     ...featureGroups.map((fg, i) => ({ name: 'Feature ' + (i + 1), obj: fg, baseScale: baseScaleOf(fg) })),
   ];
   setupEditor(EDITABLE);
@@ -1318,7 +1340,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         });
 
         // Avatar billboarding: same cylindrical system, with Math.PI/2 child offset
-        // (saraGroup and siddhantGroup are already in the billboards array)
+        // (founder groups are already in the billboards array)
       } else {
         anchorSmoothInit = false;
         camSmoothInit = false;
@@ -1337,10 +1359,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         featureGroups.forEach((fg, i) => {
           if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
         });
-        if (!isEditing(saraGroup))
-          saraGroup.position.z = editBaseZ(saraGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
-        if (!isEditing(siddhantGroup))
-          siddhantGroup.position.z = editBaseZ(siddhantGroup, 0.005) + Math.sin(t * 0.9 + 1.8) * 0.006;
+        FOUNDERS.forEach((f, i) => {
+          const grp = founderData[f.id].group;
+          if (!isEditing(grp)) {
+            grp.position.z = editBaseZ(grp, 0.005) + Math.sin(t * 0.9 + i * 0.65) * 0.006;
+          }
+        });
       }
 
       // CTA: stationary
@@ -1351,8 +1375,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // Smooth focus/unfocus scale and position transition for all elements
       if (revealT === null) {
         let activeGroup = null;
-        if (expandedItem === 'sara') activeGroup = saraGroup;
-        else if (expandedItem === 'siddhant') activeGroup = siddhantGroup;
+        const activeFounder = FOUNDERS.find(f => f.id === expandedItem);
+        if (activeFounder) activeGroup = founderData[activeFounder.id].group;
         else if (expandedItem === 'headset') activeGroup = heroGroup;
         else if (expandedItem && expandedItem.startsWith('feature')) {
           const idx = parseInt(expandedItem.replace('feature', ''));
@@ -1375,10 +1399,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
               } else if (expandedItem.startsWith('feature')) {
                 targetScale = e.base * 3.4; // Make focused feature card massive
                 targetPos.set(0.00, 0.08, 0.24); // Center and fly closest to camera for perfect reading
-              } else if (expandedItem === 'sara') {
-                targetPos.set(-0.28, 0.02, 0.05); // Move Sara slightly right/up
-              } else if (expandedItem === 'siddhant') {
-                targetPos.set(0.28, 0.02, 0.05); // Move Siddhant slightly left/up
+              } else if (activeFounder) {
+                targetPos.copy(activeFounder.focusPos);
               }
             }
           }
