@@ -372,9 +372,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   logoGroup.add(lockup);
   flat.add(logoGroup);
   billboards.push(logoGroup);
-  logoGroup.position.set(0.00, 0.44, 0.005);
+  logoGroup.position.set(0.00, 0.52, 0.005);
 
-  heroGroup.position.set(0.00, 0.10, 0.03);
+  // Headset hub — higher on card; connector lines start at bottom of hub
+  const HEADSET_POS = new THREE.Vector3(0.00, 0.26, 0.03);
+  const HEADSET_LINE_ORIGIN = new THREE.Vector3(0.00, 0.13, 0.03);
+
+  heroGroup.position.copy(HEADSET_POS);
   heroGroup.scale.setScalar(1.00);
   flat.add(heroGroup);
   billboards.push(heroGroup);
@@ -390,7 +394,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Funktioniert komplett offline',
         'Wartung automatisch dokumentiert'
       ],
-      icon: '◈', color: '#00aaff', x: -0.35, y: 0.18 
+      icon: '◈', color: '#00aaff', x: -0.36, y: 0.06 
     },
     { 
       title: 'KNOW-HOW', 
@@ -400,7 +404,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Erfahrungswissen bleibt im Unternehmen',
         'Schulungszeit spürbar verkürzt'
       ],
-      icon: '◉', color: '#00ffcc', x: 0.00, y: 0.28 
+      icon: '◉', color: '#00ffcc', x: 0.00, y: 0.10 
     },
     { 
       title: 'COMPLIANCE', 
@@ -410,7 +414,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Fälschungssicher archiviert',
         'Bereit für DGUV- & Arbeitsschutz-Prüfungen'
       ],
-      icon: '◆', color: '#ffb700', x: 0.35, y: 0.18 
+      icon: '◆', color: '#ffb700', x: 0.36, y: 0.06 
     },
   ];
 
@@ -546,8 +550,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     // Contact shadow under card
     contactShadow(0.072, feat.x, feat.y, 0.08);
 
-    // Glowing connector line: headset center → card
-    const origin = new THREE.Vector3(0.00, 0.10, 0.03);
+    // Glowing connector line: bottom of headset hub → pitch card
+    const origin = HEADSET_LINE_ORIGIN.clone();
     const target = new THREE.Vector3(feat.x, feat.y, 0.005);
     const points = [origin, target];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -581,7 +585,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   billboards.push(ctaGroup);
 
   // Contact shadow under headset center and CTA
-  contactShadow(0.14, 0.00, -0.02, 0.12);   // headset center
+  contactShadow(0.14, HEADSET_LINE_ORIGIN.x, HEADSET_LINE_ORIGIN.y, 0.12);
   contactShadow(0.10, 0.00, -0.32, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
@@ -880,9 +884,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '+49 1525 2993422',
       email: 'sara.shafiei.sarvestani@tu-clausthal.de',
       accent: '#00ffcc',
-      x: -0.50,
-      y: -0.10,
-      focusPos: new THREE.Vector3(-0.28, -0.06, 0.05),
+      x: -0.48,
+      y: -0.06,
+      focusPos: new THREE.Vector3(-0.28, -0.02, 0.05),
     },
     {
       id: 'wahib',
@@ -893,10 +897,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '',
       email: 'wahib.shahid.farhat@tu-clausthal.de',
       accent: '#ffb700',
-      x: -0.34,
-      y: -0.22,
-      z: 0.014,
-      focusPos: new THREE.Vector3(-0.20, -0.14, 0.06),
+      x: -0.40,
+      y: -0.26,
+      z: 0.012,
+      focusPos: new THREE.Vector3(-0.22, -0.18, 0.06),
     },
     {
       id: 'siddhant',
@@ -907,9 +911,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '+49 1551 0350105',
       email: 'siddhant.jude.rebello@tu-clausthal.de',
       accent: '#c084fc',
-      x: 0.50,
-      y: -0.10,
-      focusPos: new THREE.Vector3(0.28, -0.06, 0.05),
+      x: 0.48,
+      y: -0.06,
+      focusPos: new THREE.Vector3(0.28, -0.02, 0.05),
     },
   ];
 
