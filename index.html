@@ -571,7 +571,13 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     billboards.push(fg);
   }
 
-  // ================= CTA button — bottom =================
+  // ================= CTA button — anchored below Wahib avatar =================
+  const WAHIB_ANCHOR = { x: 0.000, y: -0.380, z: 0.054, rotY: -0.08 };
+  const WAHIB_CHIP_DROP = 0.078;   // name chip offset + half height
+  const CTA_GAP = 0.028;
+  const CTA_HALF_H = 0.085;        // scaled button half-height on card plane
+  const CTA_Y = WAHIB_ANCHOR.y - WAHIB_CHIP_DROP - CTA_GAP - CTA_HALF_H;
+
   const cta = makeUnlit((await load('./assets/cta-button.glb')).scene);
   cta.scale.setScalar(1.50);
   const ctaGroup = new THREE.Group();
@@ -580,7 +586,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.430, 0.000);
+  ctaGroup.position.set(0.000, CTA_Y, 0.000);
   ctaGroup.rotation.y = 0.04;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
@@ -588,7 +594,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   // Contact shadow under headset center and CTA
   contactShadow(0.14, HEADSET_LINE_ORIGIN.x, HEADSET_LINE_ORIGIN.y, 0.12);
-  contactShadow(0.10, 0.00, -0.430, 0.06);  // CTA
+  contactShadow(0.10, 0.00, CTA_Y, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -901,17 +907,17 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     {
       id: 'wahib',
       avatarUrl: './assets/wahib-avatar.glb',
-      photoUrl: './assets/Wahib Farhat.png',
+      photoUrl: './assets/Wahib Farhat.jpg',
       name: 'Wahib Farhat',
       role: 'Co-Founder | KI & Systemarchitektur',
       phone: '',
       email: 'wahib.shahid.farhat@tu-clausthal.de',
       accent: '#ffb700',
-      x: 0.000,
-      y: -0.255,
-      z: 0.055,
-      rotY: 0.00,
-      focusPos: new THREE.Vector3(0.00, -0.18, 0.06),
+      x: WAHIB_ANCHOR.x,
+      y: WAHIB_ANCHOR.y,
+      z: WAHIB_ANCHOR.z,
+      rotY: WAHIB_ANCHOR.rotY,
+      focusPos: new THREE.Vector3(0.00, -0.30, 0.06),
     },
     {
       id: 'siddhant',
