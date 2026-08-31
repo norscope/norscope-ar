@@ -905,8 +905,20 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     return fc;
   }
 
+  function roleToLines(role) {
+    const parts = role.split(' | ').map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) return parts;
+    const ampIdx = role.indexOf(' & ');
+    if (ampIdx !== -1 && role.length > 18) {
+      return [role.slice(0, ampIdx).trim(), '& ' + role.slice(ampIdx + 3).trim()];
+    }
+    return [role];
+  }
+
   function makeNameChip(name, role, accentColor) {
-    const cw = 360, ch = 90;
+    const roleLines = roleToLines(role);
+    const multiLine = roleLines.length > 1;
+    const cw = 360, ch = multiLine ? 108 : 90;
     const fc = document.createElement('canvas');
     fc.width = cw; fc.height = ch;
     const ctx = fc.getContext('2d');
@@ -924,15 +936,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     ctx.fillStyle = '#f0f8ff';
     ctx.font = 'bold 36px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(name, cw/2, 42);
+    ctx.fillText(name, cw/2, multiLine ? 38 : 42);
     ctx.fillStyle = accentColor;
-    ctx.font = '26px sans-serif';
-    ctx.fillText(role, cw/2, 76);
+    ctx.font = `${multiLine ? 22 : 26}px sans-serif`;
+    roleLines.forEach((line, i) => {
+      ctx.fillText(line, cw/2, multiLine ? 68 + i * 26 : 76);
+    });
     const tex = new THREE.CanvasTexture(fc);
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    return new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.035), mat);
+    const planeH = multiLine ? 0.042 : 0.035;
+    return new THREE.Mesh(new THREE.PlaneGeometry(0.14, planeH), mat);
   }
 
   function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
@@ -1086,7 +1101,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Name chip — floats just below the avatar feet
     const chip = makeNameChip(name, role, accentHex);
-    chip.position.set(0, -0.03, 0.005);
+    chip.position.set(0, roleToLines(role).length > 1 ? -0.028 : -0.03, 0.005);
     g.add(chip);
 
     // Contact shadow

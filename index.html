@@ -662,8 +662,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     return fc;
   }
 
+  function roleToLines(role) {
+    const parts = role.split(' | ').map(s => s.trim()).filter(Boolean);
+    if (parts.length > 1) return parts;
+    const ampIdx = role.indexOf(' & ');
+    if (ampIdx !== -1 && role.length > 18) {
+      return [role.slice(0, ampIdx).trim(), '& ' + role.slice(ampIdx + 3).trim()];
+    }
+    return [role];
+  }
+
   function makeNameChip(name, role, accentColor) {
-    const roleLines = role.split(' | ').map(s => s.trim());
+    const roleLines = roleToLines(role);
     const multiLine = roleLines.length > 1;
     const cw = 360, ch = multiLine ? 108 : 90;
     const fc = document.createElement('canvas');
@@ -848,7 +858,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Name chip — floats just below the avatar feet
     const chip = makeNameChip(name, role, accentHex);
-    chip.position.set(0, role.includes(' | ') ? -0.028 : -0.02, 0.005);
+    chip.position.set(0, roleToLines(role).length > 1 ? -0.028 : -0.02, 0.005);
     g.add(chip);
 
     // Contact shadow
