@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Norscope AR</title>
+<title>Norscope AR — Wahib</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -63,6 +63,207 @@
 
   .pulse{animation:pulse 1.8s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+
+  /* ---- premium 2D modal overlays ---- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 7, 13, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 20px;
+  }
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-content {
+    background: linear-gradient(135deg, rgba(22, 34, 53, 0.94), rgba(8, 13, 22, 0.97));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 36px 28px 30px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    position: relative;
+    transform: translateY(30px) scale(0.96);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    color: #e2e8f0;
+  }
+  .modal-overlay.active .modal-content {
+    transform: translateY(0) scale(1);
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s, color 0.2s;
+  }
+  .modal-close:hover {
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+  }
+  .modal-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .modal-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    text-align: center;
+    color: #fff;
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+  .modal-accent-bar {
+    width: 60px;
+    height: 3px;
+    margin: 0 auto 16px;
+    border-radius: 2px;
+  }
+  .modal-tagline {
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.6;
+    text-align: center;
+    color: var(--theme-color, #cbd5e1);
+    margin-bottom: 24px;
+    padding: 0 10px;
+  }
+  .modal-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .modal-bullets li {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    position: relative;
+    padding-left: 24px;
+    color: #cbd5e1;
+  }
+  .modal-bullets li::before {
+    content: "•";
+    position: absolute;
+    left: 4px;
+    color: var(--theme-color, #00ffcc);
+    font-size: 20px;
+    line-height: 1;
+    top: -1px;
+  }
+
+  /* ---- profile specific styles ---- */
+  .profile-modal-content {
+    background: linear-gradient(135deg, rgba(22, 34, 53, 0.94), rgba(8, 13, 22, 0.97));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 28px;
+    padding: 40px 28px 32px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    position: relative;
+    transform: translateY(30px) scale(0.96);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: center;
+    color: #e2e8f0;
+  }
+  .modal-overlay.active .profile-modal-content {
+    transform: translateY(0) scale(1);
+  }
+  .profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .profile-avatar-container {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    border: 3px solid var(--theme-color, #00ffcc);
+    overflow: hidden;
+    margin-bottom: 16px;
+    background: #080d16;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .profile-avatar-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .profile-header h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .profile-header p {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--theme-color, #00ffcc);
+    font-weight: bold;
+  }
+  .profile-accent-bar {
+    width: 80px;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 auto 24px;
+  }
+  .profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .profile-actions .action-btn {
+    min-height: 56px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+    cursor: pointer;
+  }
+  .profile-actions .action-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--theme-color, #00ffcc);
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.15);
+  }
+  .profile-actions .action-btn .icon {
+    font-size: 20px;
+  }
 </style>
 </head>
 <body>
@@ -74,8 +275,8 @@
   <div class="tag">AR-Erlebnis</div>
   <p class="hint">
     Kamera erlauben und auf die <b>Rückseite der Norscope-Karte</b> richten.
-    Die Karte am besten flach hinlegen. Das Headset, die drei Founder-Avatare
-    und Feature-Cards erscheinen direkt auf der Karte. <b>Tippe auf einen Avatar</b> um sein Profil zu sehen.
+    Die Karte am besten flach hinlegen. Headset, Feature-Cards und
+    <b>Wahibs Avatar</b> erscheinen auf der Karte. <b>Tippe auf den Avatar</b> für Kontakt & Profil.
   </p>
   <button id="startBtn">Start</button>
   <div id="fallback">Kamera-Probleme? <a href="viewer.html">3D-Ansicht ohne Karte öffnen</a></div>
@@ -95,6 +296,43 @@
   <div class="row"><label>Größe</label><input type="range" id="ed-scl" min="0.4" max="2.2" step="0.02"><span class="v" id="val-scl">1</span></div>
   <button id="ed-export">Werte anzeigen / kopieren</button>
   <textarea id="ed-out" readonly></textarea>
+</div>
+
+<!-- Feature Card Modal -->
+<div id="feature-modal" class="modal-overlay">
+  <div class="modal-content">
+    <button class="modal-close" id="feat-close-btn">&times;</button>
+    <div class="modal-icon" id="feat-icon">◈</div>
+    <h2 class="modal-title" id="feat-title">Title</h2>
+    <div class="modal-accent-bar" id="feat-bar"></div>
+    <p class="modal-tagline" id="feat-tagline">Tagline</p>
+    <ul class="modal-bullets" id="feat-bullets"></ul>
+  </div>
+</div>
+
+<!-- Profile Card Modal -->
+<div id="profile-modal" class="modal-overlay">
+  <div class="profile-modal-content">
+    <button class="modal-close" id="prof-close-btn">&times;</button>
+    <div class="profile-header">
+      <div class="profile-avatar-container" id="prof-avatar-border">
+        <img id="prof-img" src="" alt="Photo">
+      </div>
+      <h2 id="prof-name">Name</h2>
+      <p id="prof-role">Role</p>
+    </div>
+    <div class="profile-accent-bar"></div>
+    <div class="profile-actions">
+      <a id="prof-phone-btn" class="action-btn" href="">
+        <span class="icon">📞</span>
+        <span class="label">Anrufen</span>
+      </a>
+      <a id="prof-email-btn" class="action-btn" href="">
+        <span class="icon">✉</span>
+        <span class="label">E-Mail schreiben</span>
+      </a>
+    </div>
+  </div>
 </div>
 
 <script type="importmap">
@@ -171,7 +409,7 @@ window.addEventListener('unhandledrejection', (e) => {
 // URL with no cache-control, so browsers/CDNs can serve a stale .mind file
 // independently of the page's own ?v=N. Appending a fresh timestamp here
 // makes that structurally impossible — every load requests a brand-new URL.
-const TARGETS_URL = './assets/targets.mind?v=' + Date.now();
+const TARGETS_URL = './assets/Wahib-targets.mind?v=' + Date.now();
 
 async function checkTargets() {
   try {
@@ -181,9 +419,9 @@ async function checkTargets() {
     // cached .mind file, instead of guessing from symptoms.
     const len = r.headers.get('content-length');
     const age = r.headers.get('age');
-    debugLog('targets.mind: ' + (len ? len + ' bytes' : '?') + (age ? ' (age ' + age + 's)' : ' (frisch)'));
+    debugLog('Wahib-targets.mind: ' + (len ? len + ' bytes' : '?') + (age ? ' (age ' + age + 's)' : ' (frisch)'));
     return r.ok;
-  } catch (e) { debugLog('targets.mind Fetch-Fehler: ' + e.message); return false; }
+  } catch (e) { debugLog('Wahib-targets.mind Fetch-Fehler: ' + e.message); return false; }
 }
 
 document.getElementById('startBtn').addEventListener('click', async () => {
@@ -198,7 +436,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   if (!(await checkTargets())) {
     arSessionState = 'idle';
     startBtn.disabled = false;
-    errEl.textContent = 'assets/targets.mind fehlt noch. Bitte das Tracking-Target kompilieren (siehe README, Schritt "Tracking-Target").';
+    errEl.textContent = 'assets/Wahib-targets.mind fehlt noch. Bitte das Tracking-Target kompilieren (siehe README, Schritt "Tracking-Target").';
     errEl.style.display = 'block';
     return;
   }
@@ -249,7 +487,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const anchorPos = new THREE.Vector3();
   const anchorQuat = new THREE.Quaternion();
   const anchorScale = new THREE.Vector3();
-  const SCENE_SCALE = 1.85;
+  const SCENE_SCALE = 1.45;
   const root = new THREE.Group();
   root.scale.setScalar(0.001);
   root.visible = false;
@@ -321,7 +559,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const hbox = new THREE.Box3().setFromObject(headset);
   const hc = hbox.getCenter(new THREE.Vector3());
   const hSize = hbox.max.x - hbox.min.x;
-  const hScale = 0.15 / hSize;   // central hero — keep modest so avatars read larger
+  const hScale = 0.17 / hSize;   // central hero: 17 cm wide (slightly smaller to prevent overlap)
   headset.scale.setScalar(hScale);
   headset.position.set(-hc.x * hScale, -hc.y * hScale, -hc.z * hScale);
   headset.updateMatrixWorld(true);
@@ -374,7 +612,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   billboards.push(logoGroup);
   logoGroup.position.set(0.00, 0.44, 0.005);
 
-  heroGroup.position.set(0.00, 0.10, 0.03);
+  heroGroup.position.set(-0.44, -0.16, 0.03);
   heroGroup.scale.setScalar(1.00);
   flat.add(heroGroup);
   billboards.push(heroGroup);
@@ -390,7 +628,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Funktioniert komplett offline',
         'Wartung automatisch dokumentiert'
       ],
-      icon: '◈', color: '#00aaff', x: -0.35, y: 0.18 
+      icon: '◈', color: '#00aaff', x: -0.24, y: 0.18 
     },
     { 
       title: 'KNOW-HOW', 
@@ -400,7 +638,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Erfahrungswissen bleibt im Unternehmen',
         'Schulungszeit spürbar verkürzt'
       ],
-      icon: '◉', color: '#00ffcc', x: 0.00, y: 0.28 
+      icon: '◉', color: '#00ffcc', x: 0.00, y: 0.18 
     },
     { 
       title: 'COMPLIANCE', 
@@ -410,7 +648,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Fälschungssicher archiviert',
         'Bereit für DGUV- & Arbeitsschutz-Prüfungen'
       ],
-      icon: '◆', color: '#ffb700', x: 0.35, y: 0.18 
+      icon: '◆', color: '#ffb700', x: 0.24, y: 0.18 
     },
   ];
 
@@ -431,7 +669,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   }
 
   function makeFeatureCard(feat) {
-    const cw = 512, ch = 360;
+    const cw = 420, ch = 640;
     const fc = document.createElement('canvas');
     fc.width = cw; fc.height = ch;
     const ctx = fc.getContext('2d');
@@ -459,57 +697,74 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     ctx.fill();
     ctx.globalAlpha = 1.0;
 
-    // Icon
+    // Icon (centered)
     ctx.fillStyle = feat.color;
-    ctx.font = 'bold 56px sans-serif';
+    ctx.font = 'bold 64px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(feat.icon, 52, 70);
+    ctx.fillText(feat.icon, cw/2, 80);
 
-    // Title
+    // Title (centered)
     ctx.fillStyle = '#f0f8ff';
     ctx.font = 'bold 42px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(feat.title, 96, 68);
+    ctx.textAlign = 'center';
+    ctx.fillText(feat.title, cw/2, 145);
 
     // Separator
     ctx.strokeStyle = feat.color;
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(24, 94);
-    ctx.lineTo(cw - 24, 94);
+    ctx.moveTo(30, 175);
+    ctx.lineTo(cw - 30, 175);
     ctx.stroke();
     ctx.globalAlpha = 1.0;
 
-    // Subtitle
+    // Subtitle (wrapped, left-aligned)
     ctx.fillStyle = feat.color;
-    ctx.font = 'italic bold 23px sans-serif';
+    ctx.font = 'italic bold 24px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(feat.sub, 24, 128);
+    const subWords = feat.sub.split(' ');
+    let subLine = '';
+    let subY = 220;
+    subWords.forEach(w => {
+      const test = subLine + w + ' ';
+      if (ctx.measureText(test).width > (cw - 64) && subLine) {
+        ctx.fillText(subLine.trim(), 32, subY);
+        subY += 32;
+        subLine = w + ' ';
+      } else {
+        subLine = test;
+      }
+    });
+    if (subLine.trim()) {
+      ctx.fillText(subLine.trim(), 32, subY);
+      subY += 32;
+    }
 
-    // Bullets
-    let startY = 164;
+    // Bullets (wrapped, left-aligned)
+    let startY = subY + 12;
     const lineH = 32;
-    const bulletIndent = 24;
+    const bulletIndent = 28;
 
     feat.bullets.forEach(bText => {
       // Draw bullet dot
       ctx.fillStyle = feat.color;
-      ctx.font = '22px sans-serif';
-      ctx.fillText('•', 24, startY);
+      ctx.font = '23px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('•', 32, startY);
 
       // Draw bullet text
       ctx.fillStyle = '#a8c0d6';
-      ctx.font = '22px sans-serif';
+      ctx.font = '23px sans-serif';
 
-      const maxW = cw - 24 - 24 - bulletIndent; // 440px
+      const maxW = cw - 32 - 32 - bulletIndent; // 328px
       const words = bText.split(' ');
       let line = '';
 
       words.forEach(w => {
         const test = line + w + ' ';
         if (ctx.measureText(test).width > maxW && line) {
-          ctx.fillText(line.trim(), 24 + bulletIndent, startY);
+          ctx.fillText(line.trim(), 32 + bulletIndent, startY);
           startY += lineH;
           line = w + ' ';
         } else {
@@ -517,7 +772,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         }
       });
       if (line.trim()) {
-        ctx.fillText(line.trim(), 24 + bulletIndent, startY);
+        ctx.fillText(line.trim(), 32 + bulletIndent, startY);
         startY += lineH;
       }
       startY += 8; // small gap between bullets
@@ -528,7 +783,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     tex.generateMipmaps = false;
 
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.184), mat);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.366), mat);
     return plane;
   }
 
@@ -543,11 +798,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     // Position in flat space
     fg.position.set(feat.x, feat.y, 0.005);
 
-    // Contact shadow under card
-    contactShadow(0.072, feat.x, feat.y, 0.08);
+    // Contact shadow under card (increased radius to 0.09)
+    contactShadow(0.09, feat.x, feat.y, 0.08);
 
     // Glowing connector line: headset center → card
-    const origin = new THREE.Vector3(0.00, 0.10, 0.03);
+    const origin = new THREE.Vector3(-0.34, -0.18, 0.03);
     const target = new THREE.Vector3(feat.x, feat.y, 0.005);
     const points = [origin, target];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
@@ -574,21 +829,21 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.32, 0.000);
+  ctaGroup.position.set(0.000, -0.36, 0.000);
   ctaGroup.rotation.y = 0.00;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
   billboards.push(ctaGroup);
 
   // Contact shadow under headset center and CTA
-  contactShadow(0.14, 0.00, -0.02, 0.12);   // headset center
-  contactShadow(0.10, 0.00, -0.32, 0.06);  // CTA
+  contactShadow(0.14, -0.44, -0.16, 0.12);   // headset center
+  contactShadow(0.10, 0.00, -0.36, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let ctaArmed = false;
 
-  // ================= AVATARS: Sara + Wahib + Siddhant =================
+  // ================= AVATAR: Wahib =================
   // Each avatar has: glow ring, 3D avatar model, name-chip canvas, profile-card canvas (hidden initially)
 
   function loadImage(src) {
@@ -677,11 +932,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    return new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.042), mat);
+    return new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.035), mat);
   }
 
   function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
-    const cw = 600, ch = 720;
+    const cw = 640, ch = 760;
     const fc = document.createElement('canvas');
     fc.width = cw; fc.height = ch;
     const ctx = fc.getContext('2d');
@@ -718,7 +973,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     ctx.globalAlpha = 1.0;
 
     // Avatar circle photo
-    const r = 96, cx2 = cw/2, cy2 = 145;
+    const r = 104, cx2 = cw/2, cy2 = 155;
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx2, cy2, r, 0, Math.PI*2);
@@ -737,28 +992,28 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Name - Space Grotesk
     ctx.fillStyle = '#f0f8ff';
-    ctx.font = 'bold 44px "Space Grotesk", sans-serif';
+    ctx.font = 'bold 50px "Space Grotesk", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(name, cw/2, 295);
+    ctx.fillText(name, cw/2, 310);
 
     // Role - IBM Plex Sans
     ctx.fillStyle = accentColor;
-    ctx.font = 'bold 24px "IBM Plex Sans", sans-serif';
-    ctx.fillText(role.toUpperCase(), cw/2, 340);
+    ctx.font = 'bold 28px "IBM Plex Sans", sans-serif';
+    ctx.fillText(role.toUpperCase(), cw/2, 358);
 
     // Separator dots
     ctx.fillStyle = accentColor;
     ctx.globalAlpha = 0.35;
     [-20, 0, 20].forEach(dx => {
       ctx.beginPath();
-      ctx.arc(cw/2+dx, 375, 4, 0, Math.PI*2);
+      ctx.arc(cw/2+dx, 395, 4, 0, Math.PI*2);
       ctx.fill();
     });
     ctx.globalAlpha = 1.0;
 
     // Helper to draw rounded boxes for contact options
     function drawContactBox(y, icon, label, text, isEmail) {
-      const bx = 44, bw = cw - 88, bh = 74, br = 14;
+      const bx = 48, bw = cw - 96, bh = 80, br = 16;
       // Box fill
       ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
       ctx.beginPath();
@@ -771,55 +1026,55 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
       // Icon on left
       ctx.fillStyle = accentColor;
-      ctx.font = '28px sans-serif';
+      ctx.font = '32px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(icon, bx + 22, y + 46);
+      ctx.fillText(icon, bx + 26, y + 50);
 
       // Value text on right
       ctx.fillStyle = '#cbd5e1';
-      ctx.font = isEmail ? '500 21px "IBM Plex Sans", sans-serif' : '500 24px "IBM Plex Sans", sans-serif';
-      ctx.fillText(text, bx + 70, y + 45);
+      ctx.font = isEmail ? '500 23px "IBM Plex Sans", sans-serif' : '500 26px "IBM Plex Sans", sans-serif';
+      ctx.fillText(text, bx + 76, y + 49);
     }
 
     // Phone Row
-    drawContactBox(425, '📞', 'PHONE', phone, false);
+    drawContactBox(445, '📞', 'PHONE', phone, false);
 
     // Email Row
-    drawContactBox(515, '✉', 'EMAIL', email, true);
+    drawContactBox(540, '✉', 'EMAIL', email, true);
 
     // Norscope label/logo at bottom
     ctx.fillStyle = accentColor;
     ctx.globalAlpha = 0.55;
-    ctx.font = 'bold 20px "IBM Plex Mono", monospace';
+    ctx.font = 'bold 22px "IBM Plex Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('NORSCOPE', cw/2, ch - 40);
+    ctx.fillText('NORSCOPE', cw/2, ch - 42);
     ctx.globalAlpha = 1.0;
 
     const tex = new THREE.CanvasTexture(fc);
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.23, 0.276), mat); // slightly wider geometry
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 0.297), mat); // larger geometry
     return plane;
   }
 
   const mixers = [];
 
-  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos = 0, zPos = 0.005) {
+  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos) {
     const g = new THREE.Group();
 
-    // Glow ring at base
-    const ring = glowRing(0.055, 0.0028, parseInt(accentHex.replace('#',''), 16), 0.5);
+    // Glow ring at base (1.5x scale)
+    const ring = glowRing(0.0825, 0.0042, parseInt(accentHex.replace('#',''), 16), 0.5);
     ring.position.y = 0.001;
     g.add(ring);
     glowPulses.push({ mesh: ring, base: 0.5 });
 
-    // Avatar 3D model
+    // Avatar 3D model (42 cm tall, 1.5x scale)
     const gltf = await load(avatarUrl);
     const av = gltf.scene;
     const abox = new THREE.Box3().setFromObject(av);
     const avH = abox.max.y - abox.min.y;
-    const avS = 0.34 / avH;   // 34 cm tall — readable beside the headset
+    const avS = 0.42 / avH;   // 42 cm tall
     av.scale.setScalar(avS);
     av.position.set(0, -abox.min.y * avS, 0);
     g.add(av);
@@ -831,104 +1086,111 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Name chip — floats just below the avatar feet
     const chip = makeNameChip(name, role, accentHex);
-    chip.position.set(0, -0.02, 0.005);
+    chip.position.set(0, -0.03, 0.005);
     g.add(chip);
 
     // Contact shadow
-    contactShadow(0.085, xPos, yPos, 0.08);
+    contactShadow(0.098, xPos, yPos, 0.08);
 
     // Pop-up stand so group faces camera
     g.rotation.x = Math.PI / 2;
-    g.position.set(xPos, yPos, zPos);
+    g.position.set(xPos, yPos, 0.005);
     flat.add(g);
     billboards.push(g);
 
-    // Profile card — added directly to flat and registered as a billboard
-    let avatarCanvas;
-    try {
-      avatarCanvas = await loadImage(photoUrl);
-    } catch (err) {
-      console.warn("Could not load photo, falling back to placeholder:", err);
-      avatarCanvas = makeAvatarPlaceholder(accentHex);
-    }
-    const profileCard = makeProfileCard(name, role, phone, email, accentHex, avatarCanvas);
-    flat.add(profileCard);
-    billboards.push(profileCard);
-
-    // Position profile card away from the avatar column
-    let cardX, cardY;
-    if (xPos < -0.2) {
-      cardX = 0.12; cardY = yPos + 0.05;
-    } else if (xPos > 0.2) {
-      cardX = -0.12; cardY = yPos + 0.05;
-    } else {
-      cardX = 0.00; cardY = yPos + 0.14;
-    }
-    profileCard.position.set(cardX, cardY, 0.08);
-    profileCard.scale.setScalar(0.0001); // hidden initially
-
-    return { group: g, profileCard, ring, accentHex };
+    return { group: g, ring, accentHex };
   }
 
-  const FOUNDERS = [
-    {
-      id: 'sara',
-      avatarUrl: './assets/sara-avatar.glb',
-      photoUrl: './assets/Sara Sarvestani.PNG',
-      name: 'Sara Sarvestani',
-      role: 'Co-Founderin & CEO',
-      phone: '+49 1525 2993422',
-      email: 'sara.shafiei.sarvestani@tu-clausthal.de',
-      accent: '#00ffcc',
-      x: -0.50,
-      y: -0.10,
-      focusPos: new THREE.Vector3(-0.28, -0.06, 0.05),
-    },
-    {
-      id: 'wahib',
-      avatarUrl: './assets/wahib-avatar.glb',
-      photoUrl: './assets/Wahib Farhat.png',
-      name: 'Wahib Farhat',
-      role: 'Co-Founder | KI & Systemarchitektur',
-      phone: '',
-      email: 'contact@norscope.com',
-      accent: '#ffb700',
-      x: -0.34,
-      y: -0.22,
-      z: 0.014,
-      focusPos: new THREE.Vector3(-0.20, -0.14, 0.06),
-    },
-    {
-      id: 'siddhant',
-      avatarUrl: './assets/siddhant-avatar.glb',
-      photoUrl: './assets/Siddhant Rebello.png',
-      name: 'Siddhant Rebello',
-      role: 'Co-Founder & CTO',
-      phone: '+49 1551 0350105',
-      email: 'siddhant.jude.rebello@tu-clausthal.de',
-      accent: '#c084fc',
-      x: 0.50,
-      y: -0.10,
-      focusPos: new THREE.Vector3(0.28, -0.06, 0.05),
-    },
-  ];
-
-  const founderData = {};
-  for (const f of FOUNDERS) {
-    const built = await buildAvatarGroup(
-      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x, f.y, f.z ?? 0.005
-    );
-    founderData[f.id] = { ...built, meta: f };
-  }
+  const wahibData = await buildAvatarGroup(
+    './assets/wahib-avatar.glb',
+    './assets/Wahib Farhat.png',
+    'Wahib Farhat', 'Co-Founder | KI & Systemarchitektur',
+    '', 'contact@norscope.com',
+    '#ffb700', 0.00, -0.16
+  );
+  const wahibGroup = wahibData.group;
 
   // ---- Tap-to-Expand system ----
-  // expandedItem: null | founder id | 'headset' | 'featureN'
+  // expandedItem: null | 'sara' | 'headset' | 'feature0' | 'feature1' | 'feature2'
+  // ---- Modal functions ----
+  function showFeatureModal(idx) {
+    const feat = FEATURES[idx];
+    document.getElementById('feat-icon').innerText = feat.icon;
+    document.getElementById('feat-title').innerText = feat.title;
+    document.getElementById('feat-tagline').innerText = feat.sub;
+    document.getElementById('feat-bar').style.background = feat.color;
+    
+    const bulletsList = document.getElementById('feat-bullets');
+    bulletsList.innerHTML = '';
+    feat.bullets.forEach(b => {
+      const li = document.createElement('li');
+      li.innerText = b;
+      bulletsList.appendChild(li);
+    });
+    
+    const modal = document.getElementById('feature-modal');
+    modal.style.setProperty('--theme-color', feat.color);
+    modal.classList.add('active');
+  }
+
+  function showProfileModal(name, role, phone, email, photoUrl, accentColor) {
+    document.getElementById('prof-name').innerText = name;
+    document.getElementById('prof-role').innerText = role;
+    document.getElementById('prof-img').src = photoUrl;
+    document.getElementById('prof-avatar-border').style.borderColor = accentColor;
+    document.getElementById('prof-role').style.color = accentColor;
+    
+    const phoneBtn = document.getElementById('prof-phone-btn');
+    if (phone && phone.trim()) {
+      phoneBtn.href = 'tel:' + phone.replace(/\s+/g, '');
+      phoneBtn.style.display = '';
+    } else {
+      phoneBtn.style.display = 'none';
+    }
+    phoneBtn.style.setProperty('--theme-color', accentColor);
+    
+    const emailBtn = document.getElementById('prof-email-btn');
+    emailBtn.href = 'mailto:' + email + '?subject=Kontakt%20Norscope';
+    emailBtn.style.setProperty('--theme-color', accentColor);
+    
+    const modal = document.getElementById('profile-modal');
+    modal.style.setProperty('--theme-color', accentColor);
+    
+    const rgbMap = {
+      '#00ffcc': '0, 255, 204',
+      '#ffb700': '255, 183, 0',
+      '#c084fc': '192, 132, 252',
+    };
+    modal.style.setProperty('--theme-color-rgb', rgbMap[accentColor] || '255, 183, 0');
+    
+    modal.classList.add('active');
+  }
+
+  // Setup modal close events
+  document.getElementById('feat-close-btn').addEventListener('click', () => {
+    document.getElementById('feature-modal').classList.remove('active');
+  });
+  document.getElementById('feature-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'feature-modal') {
+      document.getElementById('feature-modal').classList.remove('active');
+    }
+  });
+  document.getElementById('prof-close-btn').addEventListener('click', () => {
+    document.getElementById('profile-modal').classList.remove('active');
+  });
+  document.getElementById('profile-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'profile-modal') {
+      document.getElementById('profile-modal').classList.remove('active');
+    }
+  });
+
+  // ---- Tap-to-Expand system ----
+  // expandedItem: null | 'headset'
   let expandedItem = null;
   const EXPAND_DURATION = 380;   // ms
   const expandAnims = [];        // {card, fromScale, toScale, startMs, duration}
 
   function startExpandAnim(card, toScale, duration) {
-    // remove any existing anim for this card
     const idx = expandAnims.findIndex(a => a.card === card);
     if (idx !== -1) expandAnims.splice(idx, 1);
     expandAnims.push({ card, fromScale: card.scale.x, toScale, startMs: performance.now(), duration });
@@ -936,20 +1198,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   function openProfile(which) {
     const isReopening = (expandedItem === which);
-    for (const f of FOUNDERS) {
-      startExpandAnim(founderData[f.id].profileCard, 0.0001, 200);
-    }
     if (isReopening) { expandedItem = null; return; }
     expandedItem = which;
-    if (founderData[which]) {
-      startExpandAnim(founderData[which].profileCard, 2.2, EXPAND_DURATION);
-    }
   }
 
   function handleTap(clientX, clientY, targetEl) {
-    // Prevent raycasting if clicking on start overlay or editor panel
-    if (targetEl && (targetEl.closest('#editor') || targetEl.closest('#start'))) {
-      debugLog('Ignoriere Tap im Editor/Start-Overlay');
+    // Prevent raycasting if clicking on start overlay, editor panel or any 2D modal
+    if (targetEl && (
+      targetEl.closest('#editor') || 
+      targetEl.closest('#start') || 
+      targetEl.closest('#feature-modal') || 
+      targetEl.closest('#profile-modal')
+    )) {
       return;
     }
 
@@ -957,35 +1217,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     if (!ctaArmed) return;
     if (editTarget !== null) return;
 
-    // Use window dimensions for robust raycast NDC calculation
     pointer.x = (clientX / window.innerWidth) * 2 - 1;
     pointer.y = -(clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
 
-    // Raycast check for active profile cards first (so clicks on contact info are processed)
-    for (const f of FOUNDERS) {
-      if (expandedItem !== f.id) continue;
-      const hitsCard = raycaster.intersectObject(founderData[f.id].profileCard, true);
-      if (hitsCard.length > 0) {
-        const uv = hitsCard[0].uv;
-        debugLog(`${f.name}-Karte getippt: uv.y = ${uv.y.toFixed(2)}`);
-        if (uv.y >= 0.15 && uv.y < 0.29 && f.email) {
-          window.location.href = `mailto:${f.email}?subject=Kontakt%20Norscope`;
-        } else if (uv.y >= 0.29 && uv.y < 0.43 && f.phone) {
-          window.location.href = `tel:${f.phone.replace(/\s/g, '')}`;
-        } else {
-          openProfile(f.id);
-        }
-        return;
-      }
-    }
-
+    const hitsLogo = raycaster.intersectObject(logoGroup, true);
     const hitsCTA = raycaster.intersectObject(ctaGroup, true);
     const hitsHero = raycaster.intersectObject(heroGroup, true);
-    const founderHits = FOUNDERS.map(f => ({
-      id: f.id,
-      hits: raycaster.intersectObject(founderData[f.id].group, true).length,
-    }));
+    const hitsWahib = raycaster.intersectObject(wahibGroup, true);
 
     // Raycast against feature cards
     let hitFeatureIdx = -1;
@@ -997,7 +1236,14 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       }
     }
 
-    debugLog(`Treffer: CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Founder=${founderHits.map(h => h.id + ':' + h.hits).join(', ')}, Feature=${hitFeatureIdx !== -1}`);
+    debugLog(`Treffer: Logo=${hitsLogo.length}, CTA=${hitsCTA.length}, Headset=${hitsHero.length}, Wahib=${hitsWahib.length}, Feature=${hitFeatureIdx !== -1}`);
+
+    // Logo
+    if (hitsLogo.length > 0) {
+      debugLog('Tapped Logo -> Homepage');
+      window.location.href = 'https://www.norscope.com/';
+      return;
+    }
 
     // CTA button
     if (hitsCTA.length > 0) {
@@ -1005,26 +1251,40 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       window.location.href = 'https://www.norscope.com/#/contact';
       return;
     }
-    // Headset hub — no tap-to-zoom (headset stays fixed size)
+    // Headset hub
     if (hitsHero.length > 0) {
-      debugLog('Tapped Headset — zoom disabled');
+      debugLog('Tapped Headset -> Focus Headset');
+      openProfile('headset');
       return;
     }
-    for (const fh of founderHits) {
-      if (fh.hits > 0) {
-        debugLog(`Tapped ${fh.id} -> Focus ${fh.id}`);
-        openProfile(fh.id);
-        return;
-      }
+    // Wahib avatar
+    if (hitsWahib.length > 0) {
+      debugLog('Tapped Wahib -> Show 2D Profile Modal');
+      showProfileModal(
+        'Wahib Farhat',
+        'Co-Founder | KI & Systemarchitektur',
+        '',
+        'contact@norscope.com',
+        './assets/Wahib Farhat.png',
+        '#ffb700'
+      );
+      // Brief visual pulse feedback on avatar model
+      wahibGroup.scale.setScalar(wahibGroup.scale.x * 1.12);
+      setTimeout(() => { wahibGroup.scale.setScalar(wahibGroup.scale.x / 1.12); }, 120);
+      return;
     }
     // Feature card
     if (hitFeatureIdx !== -1) {
-      debugLog(`Tapped Feature ${hitFeatureIdx + 1} -> Focus Feature`);
-      openProfile(`feature${hitFeatureIdx}`);
+      debugLog(`Tapped Feature ${hitFeatureIdx + 1} -> Show 2D Feature Modal`);
+      showFeatureModal(hitFeatureIdx);
+      // Brief visual pulse feedback on feature card mesh
+      const fg = featureGroups[hitFeatureIdx];
+      fg.scale.setScalar(fg.scale.x * 1.12);
+      setTimeout(() => { fg.scale.setScalar(fg.scale.x / 1.12); }, 120);
       return;
     }
 
-    // Tapped empty space → close all
+    // Tapped empty space → close 3D headset zoom
     if (expandedItem !== null) {
       debugLog('Tapped ins Leere -> Schließe Focus');
       openProfile(expandedItem);
@@ -1041,8 +1301,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const entrances = [
     { obj: heroGroup,          delay: 0 },
     { obj: ctaGroup,           delay: 150 },
-    ...FOUNDERS.map((f, i) => ({ obj: founderData[f.id].group, delay: 280 + i * 110 })),
-    ...featureGroups.map((fg, i) => ({ obj: fg, delay: 520 + FOUNDERS.length * 110 + i * 110 })),
+    { obj: wahibGroup,      delay: 280 },
+    ...featureGroups.map((fg, i) => ({ obj: fg, delay: 420 + i * 110 })),
   ];
   // capture each object's authored scale and position BEFORE zeroing
   entrances.forEach(e => {
@@ -1059,11 +1319,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const EDITABLE = [
     { name: 'Headset (Hub)', obj: heroGroup,     baseScale: baseScaleOf(heroGroup) },
     { name: 'Kontakt-Button',obj: ctaGroup,      baseScale: baseScaleOf(ctaGroup) },
-    ...FOUNDERS.map(f => ({
-      name: `${f.name.split(' ')[0]} (Avatar)`,
-      obj: founderData[f.id].group,
-      baseScale: baseScaleOf(founderData[f.id].group),
-    })),
+    { name: 'Wahib (Avatar)', obj: wahibGroup, baseScale: baseScaleOf(wahibGroup) },
     ...featureGroups.map((fg, i) => ({ name: 'Feature ' + (i + 1), obj: fg, baseScale: baseScaleOf(fg) })),
   ];
   setupEditor(EDITABLE);
@@ -1103,7 +1359,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     function select(i) {
       current = list[i];
       editTarget = current.obj;
-      $('ed-scl').max = (current.obj === heroGroup) ? '1' : '2.2';
+      // Do not overwrite editBase here to prevent capturing active Z-bob or scale pulse.
       syncFrom(current);
     }
     sel.addEventListener('change', () => select(+sel.value));
@@ -1118,9 +1374,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     });
     $('ed-rot').addEventListener('input', () => { current.obj.rotation.y = +$('ed-rot').value; $('val-rot').textContent = (+$('ed-rot').value).toFixed(2); });
     $('ed-scl').addEventListener('input', () => {
-      let mult = +$('ed-scl').value;
-      if (current.obj === heroGroup) mult = Math.min(mult, 1.0);
-      const s = mult * current.baseScale;
+      const s = +$('ed-scl').value * current.baseScale;
       current.obj.scale.setScalar(s);
       const existing = editBase.get(current.obj);
       const zVal = existing ? existing.z : current.obj.position.z;
@@ -1345,7 +1599,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         });
 
         // Avatar billboarding: same cylindrical system, with Math.PI/2 child offset
-        // (founder groups are already in the billboards array)
+        // (wahibGroup is already in the billboards array)
       } else {
         anchorSmoothInit = false;
         camSmoothInit = false;
@@ -1364,12 +1618,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         featureGroups.forEach((fg, i) => {
           if (!isEditing(fg)) fg.position.z = editBaseZ(fg, 0.005) + Math.sin(t * 1.3 + i * 0.7) * 0.005;
         });
-        FOUNDERS.forEach((f, i) => {
-          const grp = founderData[f.id].group;
-          if (!isEditing(grp)) {
-            grp.position.z = editBaseZ(grp, 0.005) + Math.sin(t * 0.9 + i * 0.65) * 0.006;
-          }
-        });
+        if (!isEditing(wahibGroup))
+          wahibGroup.position.z = editBaseZ(wahibGroup, 0.005) + Math.sin(t * 0.9 + 0.5) * 0.006;
       }
 
       // CTA: stationary
@@ -1380,12 +1630,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       // Smooth focus/unfocus scale and position transition for all elements
       if (revealT === null) {
         let activeGroup = null;
-        const activeFounder = FOUNDERS.find(f => f.id === expandedItem);
-        if (activeFounder) activeGroup = founderData[activeFounder.id].group;
-        else if (expandedItem && expandedItem.startsWith('feature')) {
-          const idx = parseInt(expandedItem.replace('feature', ''));
-          activeGroup = featureGroups[idx];
-        }
+        if (expandedItem === 'headset') activeGroup = heroGroup;
 
         entrances.forEach(e => {
           if (isEditing(e.obj)) return;
@@ -1396,13 +1641,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             if (e.obj !== activeGroup) {
               targetScale = 0.0001; // Hide other elements
             } else {
-              // Zoom active object (headset excluded — no tap focus)
-              if (expandedItem.startsWith('feature')) {
-                targetScale = e.base * 3.4;
-                targetPos.set(0.00, 0.08, 0.24);
-              } else if (activeFounder) {
-                targetScale = e.base * 1.35;
-                targetPos.copy(activeFounder.focusPos);
+              // Zoom active object
+              if (expandedItem === 'headset') {
+                targetScale = e.base * 2.5; // Zoom headset significantly
+                targetPos.set(0.00, 0.02, 0.20); // Center and fly closer to camera
               }
             }
           }
