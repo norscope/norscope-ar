@@ -580,7 +580,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.370, 0.000);
+  ctaGroup.position.set(0.000, -0.430, 0.000);
   ctaGroup.rotation.y = 0.04;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
@@ -588,7 +588,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   // Contact shadow under headset center and CTA
   contactShadow(0.14, HEADSET_LINE_ORIGIN.x, HEADSET_LINE_ORIGIN.y, 0.12);
-  contactShadow(0.10, 0.00, -0.370, 0.06);  // CTA
+  contactShadow(0.10, 0.00, -0.430, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -908,10 +908,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       email: 'wahib.shahid.farhat@tu-clausthal.de',
       accent: '#ffb700',
       x: 0.000,
-      y: -0.210,
+      y: -0.255,
       z: 0.055,
       rotY: 0.00,
-      focusPos: new THREE.Vector3(0.00, -0.14, 0.06),
+      focusPos: new THREE.Vector3(0.00, -0.18, 0.06),
     },
     {
       id: 'siddhant',
