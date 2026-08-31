@@ -395,7 +395,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Funktioniert komplett offline',
         'Wartung automatisch dokumentiert'
       ],
-      icon: '◈', color: '#00aaff', x: -0.240, y: 0.060, z: 0.009, rotY: 0.04
+      icon: '◈', color: '#00aaff', x: -0.288, y: 0.075, z: 0.009, rotY: 0.04
     },
     { 
       title: 'KNOW-HOW', 
@@ -405,7 +405,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Erfahrungswissen bleibt im Unternehmen',
         'Schulungszeit spürbar verkürzt'
       ],
-      icon: '◉', color: '#00ffcc', x: 0.000, y: 0.100, z: 0.009, rotY: 0.04
+      icon: '◉', color: '#00ffcc', x: 0.000, y: 0.075, z: 0.009, rotY: 0.04
     },
     { 
       title: 'COMPLIANCE', 
@@ -415,7 +415,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Fälschungssicher archiviert',
         'Bereit für DGUV- & Arbeitsschutz-Prüfungen'
       ],
-      icon: '◆', color: '#ffb700', x: 0.180, y: 0.060, z: 0.005, rotY: 0.00
+      icon: '◆', color: '#ffb700', x: 0.288, y: 0.075, z: 0.005, rotY: 0.00
     },
   ];
 
@@ -580,7 +580,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.320, 0.000);
+  ctaGroup.position.set(0.000, -0.370, 0.000);
   ctaGroup.rotation.y = 0.04;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
@@ -588,7 +588,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   // Contact shadow under headset center and CTA
   contactShadow(0.14, HEADSET_LINE_ORIGIN.x, HEADSET_LINE_ORIGIN.y, 0.12);
-  contactShadow(0.10, 0.00, -0.32, 0.06);  // CTA
+  contactShadow(0.10, 0.00, -0.370, 0.06);  // CTA
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -908,10 +908,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       email: 'wahib.shahid.farhat@tu-clausthal.de',
       accent: '#ffb700',
       x: 0.000,
-      y: -0.180,
-      z: 0.080,
+      y: -0.210,
+      z: 0.055,
       rotY: 0.00,
-      focusPos: new THREE.Vector3(0.00, -0.12, 0.06),
+      focusPos: new THREE.Vector3(0.00, -0.14, 0.06),
     },
     {
       id: 'siddhant',
