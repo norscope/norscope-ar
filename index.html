@@ -805,7 +805,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const mixers = [];
 
-  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos = 0) {
+  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos = 0, zPos = 0.005) {
     const g = new THREE.Group();
 
     // Glow ring at base
@@ -839,7 +839,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Pop-up stand so group faces camera
     g.rotation.x = Math.PI / 2;
-    g.position.set(xPos, yPos, 0.005);
+    g.position.set(xPos, yPos, zPos);
     flat.add(g);
     billboards.push(g);
 
@@ -881,8 +881,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       email: 'sara.shafiei.sarvestani@tu-clausthal.de',
       accent: '#00ffcc',
       x: -0.50,
-      y: -0.16,
-      focusPos: new THREE.Vector3(-0.28, -0.10, 0.05),
+      y: -0.10,
+      focusPos: new THREE.Vector3(-0.28, -0.06, 0.05),
     },
     {
       id: 'wahib',
@@ -893,9 +893,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '',
       email: 'contact@norscope.com',
       accent: '#ffb700',
-      x: 0.00,
-      y: -0.38,
-      focusPos: new THREE.Vector3(0.00, -0.22, 0.05),
+      x: -0.34,
+      y: -0.22,
+      z: 0.014,
+      focusPos: new THREE.Vector3(-0.20, -0.14, 0.06),
     },
     {
       id: 'siddhant',
@@ -907,15 +908,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       email: 'siddhant.jude.rebello@tu-clausthal.de',
       accent: '#c084fc',
       x: 0.50,
-      y: -0.16,
-      focusPos: new THREE.Vector3(0.28, -0.10, 0.05),
+      y: -0.10,
+      focusPos: new THREE.Vector3(0.28, -0.06, 0.05),
     },
   ];
 
   const founderData = {};
   for (const f of FOUNDERS) {
     const built = await buildAvatarGroup(
-      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x, f.y
+      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x, f.y, f.z ?? 0.005
     );
     founderData[f.id] = { ...built, meta: f };
   }
