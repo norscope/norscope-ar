@@ -375,10 +375,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   logoGroup.position.set(0.00, 0.52, 0.005);
 
   // Headset hub — higher on card; connector lines start at bottom of hub
-  const HEADSET_POS = new THREE.Vector3(0.00, 0.26, 0.03);
-  const HEADSET_LINE_ORIGIN = new THREE.Vector3(0.00, 0.13, 0.03);
+  const HEADSET_POS = new THREE.Vector3(0.000, 0.260, 0.032);
+  const HEADSET_LINE_ORIGIN = new THREE.Vector3(0.000, 0.130, 0.032);
 
   heroGroup.position.copy(HEADSET_POS);
+  heroGroup.rotation.y = -0.08;
   heroGroup.scale.setScalar(1.00);
   flat.add(heroGroup);
   billboards.push(heroGroup);
@@ -394,7 +395,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Funktioniert komplett offline',
         'Wartung automatisch dokumentiert'
       ],
-      icon: '◈', color: '#00aaff', x: -0.36, y: 0.06 
+      icon: '◈', color: '#00aaff', x: -0.240, y: 0.060, z: 0.009, rotY: 0.04
     },
     { 
       title: 'KNOW-HOW', 
@@ -404,7 +405,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Erfahrungswissen bleibt im Unternehmen',
         'Schulungszeit spürbar verkürzt'
       ],
-      icon: '◉', color: '#00ffcc', x: 0.00, y: 0.10 
+      icon: '◉', color: '#00ffcc', x: 0.000, y: 0.100, z: 0.009, rotY: 0.04
     },
     { 
       title: 'COMPLIANCE', 
@@ -414,7 +415,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
         'Fälschungssicher archiviert',
         'Bereit für DGUV- & Arbeitsschutz-Prüfungen'
       ],
-      icon: '◆', color: '#ffb700', x: 0.36, y: 0.06 
+      icon: '◆', color: '#ffb700', x: 0.180, y: 0.060, z: 0.005, rotY: 0.00
     },
   ];
 
@@ -545,14 +546,15 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     fg.add(stand);
 
     // Position in flat space
-    fg.position.set(feat.x, feat.y, 0.005);
+    fg.position.set(feat.x, feat.y, feat.z ?? 0.005);
+    fg.rotation.y = feat.rotY ?? 0;
 
     // Contact shadow under card
     contactShadow(0.072, feat.x, feat.y, 0.08);
 
     // Glowing connector line: bottom of headset hub → pitch card
     const origin = HEADSET_LINE_ORIGIN.clone();
-    const target = new THREE.Vector3(feat.x, feat.y, 0.005);
+    const target = new THREE.Vector3(feat.x, feat.y, feat.z ?? 0.005);
     const points = [origin, target];
     const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
     const lineMat = new THREE.LineBasicMaterial({
@@ -578,8 +580,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   ctaStand.position.z = 0.03;
   ctaStand.add(cta);
   ctaGroup.add(ctaStand);
-  ctaGroup.position.set(0.000, -0.32, 0.000);
-  ctaGroup.rotation.y = 0.00;
+  ctaGroup.position.set(0.000, -0.320, 0.000);
+  ctaGroup.rotation.y = 0.04;
   ctaGroup.scale.setScalar(1.80);
   flat.add(ctaGroup);
   billboards.push(ctaGroup);
@@ -655,7 +657,9 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   }
 
   function makeNameChip(name, role, accentColor) {
-    const cw = 360, ch = 90;
+    const roleLines = role.split(' | ').map(s => s.trim());
+    const multiLine = roleLines.length > 1;
+    const cw = 360, ch = multiLine ? 108 : 90;
     const fc = document.createElement('canvas');
     fc.width = cw; fc.height = ch;
     const ctx = fc.getContext('2d');
@@ -673,15 +677,18 @@ document.getElementById('startBtn').addEventListener('click', async () => {
     ctx.fillStyle = '#f0f8ff';
     ctx.font = 'bold 36px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(name, cw/2, 42);
+    ctx.fillText(name, cw/2, multiLine ? 38 : 42);
     ctx.fillStyle = accentColor;
-    ctx.font = '26px sans-serif';
-    ctx.fillText(role, cw/2, 76);
+    ctx.font = `${multiLine ? 22 : 26}px sans-serif`;
+    roleLines.forEach((line, i) => {
+      ctx.fillText(line, cw/2, multiLine ? 68 + i * 26 : 76);
+    });
     const tex = new THREE.CanvasTexture(fc);
     tex.minFilter = THREE.LinearFilter;
     tex.generateMipmaps = false;
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
-    return new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.042), mat);
+    const planeH = multiLine ? 0.050 : 0.042;
+    return new THREE.Mesh(new THREE.PlaneGeometry(0.17, planeH), mat);
   }
 
   function makeProfileCard(name, role, phone, email, accentColor, avatarCanvas) {
@@ -809,7 +816,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
   const mixers = [];
 
-  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos = 0, zPos = 0.005) {
+  async function buildAvatarGroup(avatarUrl, photoUrl, name, role, phone, email, accentHex, xPos, yPos = 0, zPos = 0.005, rotY = 0) {
     const g = new THREE.Group();
 
     // Glow ring at base
@@ -835,7 +842,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Name chip — floats just below the avatar feet
     const chip = makeNameChip(name, role, accentHex);
-    chip.position.set(0, -0.02, 0.005);
+    chip.position.set(0, role.includes(' | ') ? -0.028 : -0.02, 0.005);
     g.add(chip);
 
     // Contact shadow
@@ -843,6 +850,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
 
     // Pop-up stand so group faces camera
     g.rotation.x = Math.PI / 2;
+    g.rotation.y = rotY;
     g.position.set(xPos, yPos, zPos);
     flat.add(g);
     billboards.push(g);
@@ -884,8 +892,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '+49 1525 2993422',
       email: 'sara.shafiei.sarvestani@tu-clausthal.de',
       accent: '#00ffcc',
-      x: -0.48,
-      y: -0.06,
+      x: -0.480,
+      y: -0.060,
+      z: 0.000,
+      rotY: 0.05,
       focusPos: new THREE.Vector3(-0.28, -0.02, 0.05),
     },
     {
@@ -897,10 +907,11 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '',
       email: 'wahib.shahid.farhat@tu-clausthal.de',
       accent: '#ffb700',
-      x: -0.40,
-      y: -0.26,
-      z: 0.012,
-      focusPos: new THREE.Vector3(-0.22, -0.18, 0.06),
+      x: 0.000,
+      y: -0.180,
+      z: 0.080,
+      rotY: 0.00,
+      focusPos: new THREE.Vector3(0.00, -0.12, 0.06),
     },
     {
       id: 'siddhant',
@@ -911,8 +922,10 @@ document.getElementById('startBtn').addEventListener('click', async () => {
       phone: '+49 1551 0350105',
       email: 'siddhant.jude.rebello@tu-clausthal.de',
       accent: '#c084fc',
-      x: 0.48,
-      y: -0.06,
+      x: 0.480,
+      y: -0.060,
+      z: 0.003,
+      rotY: -0.21,
       focusPos: new THREE.Vector3(0.28, -0.02, 0.05),
     },
   ];
@@ -920,7 +933,8 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const founderData = {};
   for (const f of FOUNDERS) {
     const built = await buildAvatarGroup(
-      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent, f.x, f.y, f.z ?? 0.005
+      f.avatarUrl, f.photoUrl, f.name, f.role, f.phone, f.email, f.accent,
+      f.x, f.y, f.z ?? 0.005, f.rotY ?? 0
     );
     founderData[f.id] = { ...built, meta: f };
   }
